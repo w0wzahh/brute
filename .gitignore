@@ -37,3 +37,4 @@ website/.next/
 website/out/
 website/dev.log
 website-legacy/
+website/.netlify/
