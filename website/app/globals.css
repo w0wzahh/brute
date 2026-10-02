@@ -652,3 +652,45 @@ footer {
 .reveal-delay-1 { transition-delay: .06s; }
 .reveal-delay-2 { transition-delay: .14s; }
 .reveal-delay-3 { transition-delay: .22s; }
+
+/* ── Mobile hardening ──────────────────────────────────────── */
+/* clip (not hidden) — hidden would break position:sticky children */
+html, body { overflow-x: clip; }
+/* flex/grid children must be allowed to shrink below content width,
+   otherwise long code lines force the whole page to overflow */
+.hero-split > *, .docs-main, .code-section, .container > *,
+.win-body, .cta-body { min-width: 0; }
+pre { -webkit-overflow-scrolling: touch; }
+code { word-break: break-word; }
+pre code { word-break: normal; }
+
+@media (max-width: 640px) {
+  .container { padding: 0 16px; }
+  .win-body { padding: 18px 16px; }
+  .cta-body { padding: 18px 16px; flex-direction: column; align-items: stretch; }
+  .cta-actions { flex-direction: column; }
+  .cta-actions .btn { justify-content: center; }
+  .code-block pre { font-size: .78rem; padding: 16px 14px; }
+  .code-window pre { font-size: .72rem; padding: 16px 14px; }
+  .code-header { padding: 8px 10px; }
+  .copy-btn { width: 40px; height: 40px; }
+  .btn { padding: 12px 16px; font-size: .82rem; }
+  .hero-split { padding: 40px 0 34px; gap: 30px; }
+  .hero-buttons { flex-direction: column; align-items: stretch; }
+  .hero-buttons .btn { justify-content: center; }
+  .hero-install { flex-direction: column; align-items: stretch; }
+  .term-chip { width: 100%; }
+  .term-chip code { flex: 1; }
+  .dl-btn { justify-content: center; }
+  .stats { padding: 38px 0; }
+  .stat-num { font-size: 2.4rem; }
+  .documentation { padding: 44px 0; }
+  .docs-main { padding: 24px 0 60px; }
+  .ex-tabs-wrap { padding: 10px 0; }
+  .ex-tab { padding: 10px 13px; font-size: .74rem; }
+  .ex-sublinks a { padding: 6px 12px; }
+  .about-card { gap: 14px; padding: 16px; }
+  .ticker-track { font-size: .8rem; }
+  .documentation-header h1 { font-size: clamp(1.9rem, 9vw, 2.6rem); }
+  .back-to-top { width: 44px; height: 44px; bottom: 18px; right: 18px; }
+}
