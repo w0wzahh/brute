@@ -8,7 +8,7 @@ use inkwell::OptimizationLevel;
 use std::collections::HashMap;
 use std::path::Path;
 use crate::ast::{Program, Stmt, Expr, Literal, Type as AstType, BinOp, UnaryOp};
-use crate::error::ShitRustError;
+use crate::error::BruteError;
 
 pub struct CodeGen<'ctx> {
     context: &'ctx Context,
@@ -45,7 +45,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
     
-    pub fn generate_code(&mut self, program: &Program) -> Result<(), ShitRustError> {
+    pub fn generate_code(&mut self, program: &Program) -> Result<(), BruteError> {
         // First pass: register all function declarations
         for stmt in &program.statements {
             if let Stmt::Function { name, params, return_type, .. } = stmt {
@@ -72,7 +72,7 @@ impl<'ctx> CodeGen<'ctx> {
             match stmt {
                 Stmt::Function { name, body, .. } => {
                     let function = self.module.get_function(name)
-                        .ok_or_else(|| ShitRustError::RuntimeError(format!("No function named {}", name)))?;
+                        .ok_or_else(|| BruteError::RuntimeError(format!("No function named {}", name)))?;
                     
                     let entry = self.context.append_basic_block(function, "entry");
                     self.builder.position_at_end(entry);
@@ -97,7 +97,7 @@ impl<'ctx> CodeGen<'ctx> {
                             } else if ret_type == self.context.f64_type().into() {
                                 self.builder.build_return(Some(&self.context.f64_type().const_float(0.0)));
                             } else {
-                                return Err(ShitRustError::RuntimeError(
+                                return Err(BruteError::RuntimeError(
                                     format!("Unsupported return type for function {}", name)
                                 ));
                             }
@@ -120,7 +120,7 @@ impl<'ctx> CodeGen<'ctx> {
         
         // Verify the module
         if self.module.verify().is_err() {
-            return Err(ShitRustError::RuntimeError("Generated LLVM IR is invalid".to_string()));
+            return Err(BruteError::RuntimeError("Generated LLVM IR is invalid".to_string()));
         }
         
         Ok(())
@@ -131,8 +131,8 @@ impl<'ctx> CodeGen<'ctx> {
         name: &str, 
         params: &[(String, AstType)], 
         return_type: &AstType
-    ) -> Result<FunctionValue<'ctx>, ShitRustError> {
-        // Convert ShitRust types to LLVM types
+    ) -> Result<FunctionValue<'ctx>, BruteError> {
+        // Convert Brute types to LLVM types
         let param_types: Vec<BasicTypeEnum> = params
             .iter()
             .map(|(_, typ)| self.ast_type_to_llvm_type(typ))
@@ -160,18 +160,18 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(function)
     }
     
-    fn ast_type_to_llvm_type(&self, typ: &AstType) -> Result<BasicTypeEnum<'ctx>, ShitRustError> {
+    fn ast_type_to_llvm_type(&self, typ: &AstType) -> Result<BasicTypeEnum<'ctx>, BruteError> {
         match typ {
             AstType::Int => Ok(self.context.i64_type().into()),
             AstType::Float => Ok(self.context.f64_type().into()),
             AstType::Bool => Ok(self.context.bool_type().into()),
             AstType::String => Ok(self.context.i8_type().ptr_type(Default::default()).into()),
             AstType::Char => Ok(self.context.i8_type().into()),
-            _ => Err(ShitRustError::TypeError(format!("Unsupported type: {:?}", typ))),
+            _ => Err(BruteError::TypeError(format!("Unsupported type: {:?}", typ))),
         }
     }
     
-    fn generate_stmt(&mut self, stmt: &Stmt) -> Result<(), ShitRustError> {
+    fn generate_stmt(&mut self, stmt: &Stmt) -> Result<(), BruteError> {
         match stmt {
             Stmt::Expr(expr) => {
                 self.generate_expr(expr)?;
@@ -197,7 +197,7 @@ impl<'ctx> CodeGen<'ctx> {
                 // Convert condition to i1 (boolean)
                 let cond_val = match cond_value {
                     BasicValueEnum::IntValue(i) => i,
-                    _ => return Err(ShitRustError::TypeError("Condition must be a boolean".to_string())),
+                    _ => return Err(BruteError::TypeError("Condition must be a boolean".to_string())),
                 };
                 
                 let function = self.current_function.unwrap();
@@ -242,18 +242,18 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(())
             },
             // Other statement types would be handled here
-            _ => Err(ShitRustError::RuntimeError(format!("Statement type not yet implemented: {:?}", stmt))),
+            _ => Err(BruteError::RuntimeError(format!("Statement type not yet implemented: {:?}", stmt))),
         }
     }
     
-    fn generate_expr(&mut self, expr: &Expr) -> Result<BasicValueEnum<'ctx>, ShitRustError> {
+    fn generate_expr(&mut self, expr: &Expr) -> Result<BasicValueEnum<'ctx>, BruteError> {
         match expr {
             Expr::Literal(lit) => self.generate_literal(lit),
             Expr::Identifier(name) => {
                 if let Some(var) = self.named_values.get(name) {
                     Ok(self.builder.build_load(*var, name))
                 } else {
-                    Err(ShitRustError::UndefinedVariable(name.clone()))
+                    Err(BruteError::UndefinedVariable(name.clone()))
                 }
             },
             Expr::BinaryOp { left, op, right } => {
@@ -272,7 +272,7 @@ impl<'ctx> CodeGen<'ctx> {
                     BinOp::Gt => self.generate_gt(l_val, r_val),
                     BinOp::Ge => self.generate_ge(l_val, r_val),
                     // Other operators would be implemented here
-                    _ => Err(ShitRustError::RuntimeError(format!("Binary operator not implemented: {:?}", op))),
+                    _ => Err(BruteError::RuntimeError(format!("Binary operator not implemented: {:?}", op))),
                 }
             },
             Expr::Call { func, args } => {
@@ -284,11 +284,11 @@ impl<'ctx> CodeGen<'ctx> {
                     
                     // Get the function from the module
                     let function = self.module.get_function(name)
-                        .ok_or_else(|| ShitRustError::UndefinedVariable(name.clone()))?;
+                        .ok_or_else(|| BruteError::UndefinedVariable(name.clone()))?;
                     
                     // Check that we have the right number of arguments
                     if function.count_params() as usize != args.len() {
-                        return Err(ShitRustError::RuntimeError(
+                        return Err(BruteError::RuntimeError(
                             format!("Expected {} arguments but got {}", function.count_params(), args.len())
                         ));
                     }
@@ -310,20 +310,20 @@ impl<'ctx> CodeGen<'ctx> {
                     // Get the return value if not void
                     match function.get_type().get_return_type() {
                         Some(_) => Ok(call.try_as_basic_value().left().unwrap()),
-                        None => Err(ShitRustError::RuntimeError(
+                        None => Err(BruteError::RuntimeError(
                             format!("Cannot use void function '{}' in an expression", name)
                         )),
                     }
                 } else {
-                    Err(ShitRustError::RuntimeError("Callee is not a function name".to_string()))
+                    Err(BruteError::RuntimeError("Callee is not a function name".to_string()))
                 }
             },
             // Other expression types would be handled here
-            _ => Err(ShitRustError::RuntimeError(format!("Expression type not yet implemented: {:?}", expr))),
+            _ => Err(BruteError::RuntimeError(format!("Expression type not yet implemented: {:?}", expr))),
         }
     }
     
-    fn generate_print_call(&self, args: &[Expr], add_newline: bool) -> Result<BasicValueEnum<'ctx>, ShitRustError> {
+    fn generate_print_call(&self, args: &[Expr], add_newline: bool) -> Result<BasicValueEnum<'ctx>, BruteError> {
         if args.is_empty() {
             let format_str = if add_newline { "\n\0" } else { "\0" };
             let fmt_ptr = self.builder.build_global_string_ptr(format_str, "empty_fmt");
@@ -352,7 +352,7 @@ impl<'ctx> CodeGen<'ctx> {
                     // Assuming this is a string
                     if add_newline { "%s\n\0" } else { "%s\0" }
                 },
-                _ => return Err(ShitRustError::TypeError("Unsupported print type".to_string())),
+                _ => return Err(BruteError::TypeError("Unsupported print type".to_string())),
             };
             
             let fmt_ptr = self.builder.build_global_string_ptr(format_str, "fmt");
@@ -368,7 +368,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
     
-    fn generate_literal(&self, lit: &Literal) -> Result<BasicValueEnum<'ctx>, ShitRustError> {
+    fn generate_literal(&self, lit: &Literal) -> Result<BasicValueEnum<'ctx>, BruteError> {
         match lit {
             Literal::Int(value) => {
                 Ok(self.context.i64_type().const_int(*value as u64, false).into())
@@ -389,13 +389,13 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(self.context.i8_type().const_int(*value as u64, false).into())
             },
             // Other literal types would be handled here
-            _ => Err(ShitRustError::RuntimeError(format!("Literal type not yet implemented: {:?}", lit))),
+            _ => Err(BruteError::RuntimeError(format!("Literal type not yet implemented: {:?}", lit))),
         }
     }
     
     // Helper methods for binary operations
     
-    fn generate_add(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, ShitRustError> {
+    fn generate_add(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, BruteError> {
         match (left, right) {
             (BasicValueEnum::IntValue(l), BasicValueEnum::IntValue(r)) => {
                 Ok(self.builder.build_int_add(l, r, "addtmp").into())
@@ -404,11 +404,11 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(self.builder.build_float_add(l, r, "addtmp").into())
             },
             // String concatenation would be handled here with runtime function calls
-            _ => Err(ShitRustError::TypeError("Incompatible types for addition".to_string())),
+            _ => Err(BruteError::TypeError("Incompatible types for addition".to_string())),
         }
     }
     
-    fn generate_sub(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, ShitRustError> {
+    fn generate_sub(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, BruteError> {
         match (left, right) {
             (BasicValueEnum::IntValue(l), BasicValueEnum::IntValue(r)) => {
                 Ok(self.builder.build_int_sub(l, r, "subtmp").into())
@@ -416,11 +416,11 @@ impl<'ctx> CodeGen<'ctx> {
             (BasicValueEnum::FloatValue(l), BasicValueEnum::FloatValue(r)) => {
                 Ok(self.builder.build_float_sub(l, r, "subtmp").into())
             },
-            _ => Err(ShitRustError::TypeError("Incompatible types for subtraction".to_string())),
+            _ => Err(BruteError::TypeError("Incompatible types for subtraction".to_string())),
         }
     }
     
-    fn generate_mul(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, ShitRustError> {
+    fn generate_mul(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, BruteError> {
         match (left, right) {
             (BasicValueEnum::IntValue(l), BasicValueEnum::IntValue(r)) => {
                 Ok(self.builder.build_int_mul(l, r, "multmp").into())
@@ -428,11 +428,11 @@ impl<'ctx> CodeGen<'ctx> {
             (BasicValueEnum::FloatValue(l), BasicValueEnum::FloatValue(r)) => {
                 Ok(self.builder.build_float_mul(l, r, "multmp").into())
             },
-            _ => Err(ShitRustError::TypeError("Incompatible types for multiplication".to_string())),
+            _ => Err(BruteError::TypeError("Incompatible types for multiplication".to_string())),
         }
     }
     
-    fn generate_div(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, ShitRustError> {
+    fn generate_div(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, BruteError> {
         match (left, right) {
             (BasicValueEnum::IntValue(l), BasicValueEnum::IntValue(r)) => {
                 Ok(self.builder.build_int_signed_div(l, r, "divtmp").into())
@@ -440,13 +440,13 @@ impl<'ctx> CodeGen<'ctx> {
             (BasicValueEnum::FloatValue(l), BasicValueEnum::FloatValue(r)) => {
                 Ok(self.builder.build_float_div(l, r, "divtmp").into())
             },
-            _ => Err(ShitRustError::TypeError("Incompatible types for division".to_string())),
+            _ => Err(BruteError::TypeError("Incompatible types for division".to_string())),
         }
     }
     
     // Comparison operators
     
-    fn generate_eq(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, ShitRustError> {
+    fn generate_eq(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, BruteError> {
         match (left, right) {
             (BasicValueEnum::IntValue(l), BasicValueEnum::IntValue(r)) => {
                 Ok(self.builder.build_int_compare(inkwell::IntPredicate::EQ, l, r, "eqtmp").into())
@@ -454,11 +454,11 @@ impl<'ctx> CodeGen<'ctx> {
             (BasicValueEnum::FloatValue(l), BasicValueEnum::FloatValue(r)) => {
                 Ok(self.builder.build_float_compare(inkwell::FloatPredicate::OEQ, l, r, "eqtmp").into())
             },
-            _ => Err(ShitRustError::TypeError("Incompatible types for equality comparison".to_string())),
+            _ => Err(BruteError::TypeError("Incompatible types for equality comparison".to_string())),
         }
     }
     
-    fn generate_ne(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, ShitRustError> {
+    fn generate_ne(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, BruteError> {
         match (left, right) {
             (BasicValueEnum::IntValue(l), BasicValueEnum::IntValue(r)) => {
                 Ok(self.builder.build_int_compare(inkwell::IntPredicate::NE, l, r, "netmp").into())
@@ -466,11 +466,11 @@ impl<'ctx> CodeGen<'ctx> {
             (BasicValueEnum::FloatValue(l), BasicValueEnum::FloatValue(r)) => {
                 Ok(self.builder.build_float_compare(inkwell::FloatPredicate::ONE, l, r, "netmp").into())
             },
-            _ => Err(ShitRustError::TypeError("Incompatible types for inequality comparison".to_string())),
+            _ => Err(BruteError::TypeError("Incompatible types for inequality comparison".to_string())),
         }
     }
     
-    fn generate_lt(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, ShitRustError> {
+    fn generate_lt(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, BruteError> {
         match (left, right) {
             (BasicValueEnum::IntValue(l), BasicValueEnum::IntValue(r)) => {
                 Ok(self.builder.build_int_compare(inkwell::IntPredicate::SLT, l, r, "lttmp").into())
@@ -478,11 +478,11 @@ impl<'ctx> CodeGen<'ctx> {
             (BasicValueEnum::FloatValue(l), BasicValueEnum::FloatValue(r)) => {
                 Ok(self.builder.build_float_compare(inkwell::FloatPredicate::OLT, l, r, "lttmp").into())
             },
-            _ => Err(ShitRustError::TypeError("Incompatible types for less-than comparison".to_string())),
+            _ => Err(BruteError::TypeError("Incompatible types for less-than comparison".to_string())),
         }
     }
     
-    fn generate_le(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, ShitRustError> {
+    fn generate_le(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, BruteError> {
         match (left, right) {
             (BasicValueEnum::IntValue(l), BasicValueEnum::IntValue(r)) => {
                 Ok(self.builder.build_int_compare(inkwell::IntPredicate::SLE, l, r, "letmp").into())
@@ -490,11 +490,11 @@ impl<'ctx> CodeGen<'ctx> {
             (BasicValueEnum::FloatValue(l), BasicValueEnum::FloatValue(r)) => {
                 Ok(self.builder.build_float_compare(inkwell::FloatPredicate::OLE, l, r, "letmp").into())
             },
-            _ => Err(ShitRustError::TypeError("Incompatible types for less-equal comparison".to_string())),
+            _ => Err(BruteError::TypeError("Incompatible types for less-equal comparison".to_string())),
         }
     }
     
-    fn generate_gt(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, ShitRustError> {
+    fn generate_gt(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, BruteError> {
         match (left, right) {
             (BasicValueEnum::IntValue(l), BasicValueEnum::IntValue(r)) => {
                 Ok(self.builder.build_int_compare(inkwell::IntPredicate::SGT, l, r, "gttmp").into())
@@ -502,11 +502,11 @@ impl<'ctx> CodeGen<'ctx> {
             (BasicValueEnum::FloatValue(l), BasicValueEnum::FloatValue(r)) => {
                 Ok(self.builder.build_float_compare(inkwell::FloatPredicate::OGT, l, r, "gttmp").into())
             },
-            _ => Err(ShitRustError::TypeError("Incompatible types for greater-than comparison".to_string())),
+            _ => Err(BruteError::TypeError("Incompatible types for greater-than comparison".to_string())),
         }
     }
     
-    fn generate_ge(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, ShitRustError> {
+    fn generate_ge(&self, left: BasicValueEnum<'ctx>, right: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, BruteError> {
         match (left, right) {
             (BasicValueEnum::IntValue(l), BasicValueEnum::IntValue(r)) => {
                 Ok(self.builder.build_int_compare(inkwell::IntPredicate::SGE, l, r, "getmp").into())
@@ -514,7 +514,7 @@ impl<'ctx> CodeGen<'ctx> {
             (BasicValueEnum::FloatValue(l), BasicValueEnum::FloatValue(r)) => {
                 Ok(self.builder.build_float_compare(inkwell::FloatPredicate::OGE, l, r, "getmp").into())
             },
-            _ => Err(ShitRustError::TypeError("Incompatible types for greater-equal comparison".to_string())),
+            _ => Err(BruteError::TypeError("Incompatible types for greater-equal comparison".to_string())),
         }
     }
     
@@ -530,20 +530,20 @@ impl<'ctx> CodeGen<'ctx> {
         builder.build_alloca(typ, name)
     }
     
-    pub fn write_to_file(&self, path: &Path) -> Result<(), ShitRustError> {
+    pub fn write_to_file(&self, path: &Path) -> Result<(), BruteError> {
         match self.module.print_to_file(path) {
             Ok(_) => Ok(()),
-            Err(e) => Err(ShitRustError::IoError(std::io::Error::new(
+            Err(e) => Err(BruteError::IoError(std::io::Error::new(
                 std::io::ErrorKind::Other, 
                 format!("Failed to write LLVM IR to file: {}", e)
             ))),
         }
     }
     
-    pub fn compile_to_object_file(&self, path: &Path) -> Result<(), ShitRustError> {
+    pub fn compile_to_object_file(&self, path: &Path) -> Result<(), BruteError> {
         let target_triple = inkwell::targets::TargetMachine::get_default_triple();
         let target = inkwell::targets::Target::from_triple(&target_triple)
-            .map_err(|e| ShitRustError::RuntimeError(format!("Failed to get target: {}", e)))?;
+            .map_err(|e| BruteError::RuntimeError(format!("Failed to get target: {}", e)))?;
             
         let target_machine = target.create_target_machine(
             &target_triple,
@@ -552,13 +552,13 @@ impl<'ctx> CodeGen<'ctx> {
             OptimizationLevel::Default,
             inkwell::targets::RelocMode::Default,
             inkwell::targets::CodeModel::Default,
-        ).ok_or_else(|| ShitRustError::RuntimeError("Failed to create target machine".to_string()))?;
+        ).ok_or_else(|| BruteError::RuntimeError("Failed to create target machine".to_string()))?;
         
         target_machine.write_to_file(
             &self.module, 
             inkwell::targets::FileType::Object, 
             path
-        ).map_err(|e| ShitRustError::IoError(std::io::Error::new(
+        ).map_err(|e| BruteError::IoError(std::io::Error::new(
             std::io::ErrorKind::Other, 
             format!("Failed to write object file: {}", e)
         )))

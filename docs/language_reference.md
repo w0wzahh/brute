@@ -1,6 +1,6 @@
-# ShitRust Language Reference
+# Brute Language Reference
 
-ShitRust is a programming language that combines features from Rust, Python, and C/C++. It aims to provide memory safety like Rust, simplicity like Python, and performance like C/C++.
+Brute is a programming language that combines features from Rust, Python, and C/C++. It aims to provide memory safety like Rust, simplicity like Python, and performance like C/C++.
 
 ## Basic Syntax
 
@@ -199,7 +199,7 @@ fn first<T>(list: [T]) -> Option<T> {
 
 ### Memory Management
 
-ShitRust uses a ownership system similar to Rust:
+Brute uses a ownership system similar to Rust:
 
 ```sr
 let v = Vector::new();
@@ -304,4 +304,4 @@ fn documented_function() -> void {
 
 ## File Extension
 
-ShitRust files use the `.sr` extension.
+Brute files use the `.brt` extension.

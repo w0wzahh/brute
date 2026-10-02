@@ -1,10 +1,10 @@
-# ShitRust
+# Brute
 
 <div align="center">
-  <img src="assets/icon.svg" alt="ShitRust Logo" width="200" />
+  <img src="assets/icon.svg" alt="Brute Logo" width="200" />
 </div>
 
-ShitRust is a powerful and flexible programming language that combines the best features from Rust, Python, and C/C++. It's designed to offer memory safety, readability, and performance while providing a modern, ergonomic syntax.
+Brute is a powerful and flexible programming language that combines the best features from Rust, Python, and C/C++. It's designed to offer memory safety, readability, and performance while providing a modern, ergonomic syntax.
 
 ## Key Features
 
@@ -47,16 +47,17 @@ ShitRust is a powerful and flexible programming language that combines the best 
 - Hex encoding/decoding and Base64 utilities
 
 ### Developer Experience
-- Rich CLI with compilation, running, and formatting commands (Kinda a** though ngl)
-- Strict type checking mode for catching errors
+- Rich CLI with compilation, running, and formatting commands
+- Strict type checking mode for catching errors early
+- Detailed error reporting with color-coded messages
 - Performance timing for compilation and execution phases
 
 ## Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/Waowzar/shitrust.git
-cd shitrust
+git clone https://github.com/w0wzahh/brute.git
+cd brute
 
 # Build the compiler
 # Windows
@@ -72,54 +73,54 @@ cargo install --path .
 ## Usage
 
 ```bash
-# Compile a ShitRust program
-shitrust compile examples/hello.sr
+# Compile a Brute program
+brute compile examples/hello.fe
 
-# Run a ShitRust program
-shitrust run examples/hello.sr
+# Run a Brute program
+brute run examples/hello.fe
 
 # Run a program with async mode
-shitrust run-async examples/async_example.sr
+brute run-async examples/async_example.fe
 
 # Type check a program
-shitrust check examples/hello.sr
+brute check examples/hello.fe
 
-# Format a ShitRust program
-shitrust format examples/hello.sr
+# Format a Brute program
+brute format examples/hello.fe
 
-# Show information about ShitRust
-shitrust info
+# Show information about Brute
+brute info
 
 # Show help
-shitrust --help
+brute --help
 ```
 
 ### Compiler Options
 
 ```bash
 # Compile with verbose output
-shitrust -v compile examples/hello.sr
+brute -v compile examples/hello.fe
 
 # Compile with specific optimization level
-shitrust -o aggressive compile examples/hello.sr
+brute -o aggressive compile examples/hello.fe
 
 # Enable strict type checking
-shitrust --strict-types compile examples/hello.sr
+brute --strict-types compile examples/hello.fe
 
 # Compile with debug information
-shitrust -d compile examples/hello.sr
+brute -d compile examples/hello.fe
 
 # Compile with timing information
-shitrust -t compile examples/hello.sr
+brute -t compile examples/hello.fe
 
 # Compile and emit LLVM IR (creates .ll file)
-shitrust --emit-llvm compile examples/hello.sr
+brute --emit-llvm compile examples/hello.fe
 
 # Disable colored output
-shitrust --no-color compile examples/hello.sr
+brute --no-color compile examples/hello.fe
 
 # Format a file in-place
-shitrust format -i examples/hello.sr
+brute format -i examples/hello.fe
 ```
 
 ## Language Overview
@@ -333,18 +334,18 @@ fn main() -> void {
 
 ## Examples
 
-Check the examples directory for sample ShitRust programs:
+Check the examples directory for sample Brute programs:
 
-- `hello.sr` - A simple "Hello World" program
-- `features.sr` - Demonstrates basic language features
-- `advanced_features.sr` - Comprehensive example of advanced features
-- `async_example.sr` - Demonstrates async/await functionality
-- `crypto_demo.sr` - Showcases cryptographic operations
-- `concurrent.sr` - Examples of thread-based concurrency
+- `hello.fe` - A simple "Hello World" program
+- `features.fe` - Demonstrates basic language features
+- `advanced_features.fe` - Comprehensive example of advanced features
+- `async_example.fe` - Demonstrates async/await functionality
+- `crypto_demo.fe` - Showcases cryptographic operations
+- `concurrent.fe` - Examples of thread-based concurrency
 
 ## Standard Library
 
-ShitRust comes with a comprehensive standard library:
+Brute comes with a comprehensive standard library:
 
 - `stdlib::io` - Input/output operations
 - `stdlib::collections` - Data structures like HashMap, Queue
@@ -359,11 +360,12 @@ ShitRust comes with a comprehensive standard library:
 
 ## Project Structure
 
-- `src/` - Source code for the ShitRust compiler and interpreter
-- `examples/` - Example ShitRust programs
+- `src/` - Source code for the Brute compiler and interpreter
+- `examples/` - Example Brute programs
 - `tests/` - Test suite
 - `assets/` - Logo and other assets
 - `docs/` - Documentation
+- `website/` - Official website resources
 
 ## Contributing
 
@@ -372,3 +374,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+Thanks to all contributors who have helped make Brute a better language! 

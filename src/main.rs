@@ -2,18 +2,17 @@ use clap::{Parser, Subcommand, ValueEnum};
 use colored::*;
 use std::fs;
 use std::path::PathBuf;
-use std::process;
 use std::io::Write;
 use anyhow::{Result, Context};
-use shitrust::compiler::{Compiler, CompilerOptions, OptimizationLevel};
-use shitrust::error::ShitRustError;
-use shitrust::formatter::Formatter;
-use shitrust::type_system::TypeChecker;
+use brute::compiler::{Compiler, CompilerOptions, OptimizationLevel};
+use brute::error::BruteError;
+use brute::formatter::Formatter;
+use brute::type_system::TypeChecker;
 
-/// ShitRust programming language compiler and runtime
+/// Brute programming language compiler and runtime
 #[derive(Parser)]
-#[command(name = "shitrust")]
-#[command(about = "ShitRust programming language compiler and runtime", long_about = None)]
+#[command(name = "brute")]
+#[command(about = "Brute programming language compiler and runtime", long_about = None)]
 #[command(version, author)]
 struct Cli {
     /// Enable verbose output
@@ -69,7 +68,7 @@ impl From<OptLevel> for OptimizationLevel {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Compile a ShitRust program
+    /// Compile a Brute program
     Compile {
         /// Input file
         #[arg(value_name = "FILE")]
@@ -79,13 +78,13 @@ enum Commands {
         #[arg(short, long, value_name = "FILE")]
         output: Option<PathBuf>,
     },
-    /// Run a ShitRust program
+    /// Run a Brute program
     Run {
         /// Input file
         #[arg(value_name = "FILE")]
         input: PathBuf,
     },
-    /// Format a ShitRust program
+    /// Format a Brute program
     Format {
         /// Input file
         #[arg(value_name = "FILE")]
@@ -95,19 +94,19 @@ enum Commands {
         #[arg(short, long)]
         in_place: bool,
     },
-    /// Check a ShitRust program for type errors
+    /// Check a Brute program for type errors
     Check {
         /// Input file
         #[arg(value_name = "FILE")]
         input: PathBuf,
     },
-    /// Run a ShitRust program in async mode
+    /// Run a Brute program in async mode
     RunAsync {
         /// Input file
         #[arg(value_name = "FILE")]
         input: PathBuf,
     },
-    /// Show information about ShitRust
+    /// Show information about Brute
     Info,
 }
 
@@ -154,10 +153,10 @@ fn main() -> Result<()> {
                 println!("{} {}", "Type checking".green().bold(),
                     input.display().to_string().cyan());
                 
-                let mut lexer = shitrust::lexer::Lexer::with_filename(&source, filename.clone());
+                let mut lexer = brute::lexer::Lexer::with_filename(&source, filename.clone());
                 let tokens = lexer.scan_tokens()?;
                 
-                let mut parser = shitrust::parser::Parser::new(tokens);
+                let mut parser = brute::parser::Parser::new(tokens);
                 let program = parser.parse()?;
                 
                 let mut type_checker = TypeChecker::new();
@@ -175,7 +174,7 @@ fn main() -> Result<()> {
                     Ok(())
                 },
                 Err(e) => {
-                    if let Some(sr_err) = e.downcast_ref::<ShitRustError>() {
+                    if let Some(sr_err) = e.downcast_ref::<BruteError>() {
                         eprintln!("{}", sr_err.format_error());
                     } else {
                         eprintln!("{}: {}", "Error".red().bold(), e);
@@ -198,10 +197,10 @@ fn main() -> Result<()> {
                 println!("{} {}", "Type checking".green().bold(),
                     input.display().to_string().cyan());
                 
-                let mut lexer = shitrust::lexer::Lexer::with_filename(&source, filename.clone());
+                let mut lexer = brute::lexer::Lexer::with_filename(&source, filename.clone());
                 let tokens = lexer.scan_tokens()?;
                 
-                let mut parser = shitrust::parser::Parser::new(tokens);
+                let mut parser = brute::parser::Parser::new(tokens);
                 let program = parser.parse()?;
                 
                 let mut type_checker = TypeChecker::new();
@@ -213,7 +212,7 @@ fn main() -> Result<()> {
             match compiler.run_with_filename(&source, Some(filename)) {
                 Ok(_) => Ok(()),
                 Err(e) => {
-                    if let Some(sr_err) = e.downcast_ref::<ShitRustError>() {
+                    if let Some(sr_err) = e.downcast_ref::<BruteError>() {
                         eprintln!("{}", sr_err.format_error());
                     } else {
                         eprintln!("{}: {}", "Error".red().bold(), e);
@@ -233,10 +232,10 @@ fn main() -> Result<()> {
             
             // Type check if strict types are enabled
             if cli.strict_types {
-                let mut lexer = shitrust::lexer::Lexer::with_filename(&source, filename.clone());
+                let mut lexer = brute::lexer::Lexer::with_filename(&source, filename.clone());
                 let tokens = lexer.scan_tokens()?;
                 
-                let mut parser = shitrust::parser::Parser::new(tokens);
+                let mut parser = brute::parser::Parser::new(tokens);
                 let program = parser.parse()?;
                 
                 let mut type_checker = TypeChecker::new();
@@ -247,7 +246,7 @@ fn main() -> Result<()> {
             match compiler.run_async_with_filename(&source, Some(filename)) {
                 Ok(_) => Ok(()),
                 Err(e) => {
-                    if let Some(sr_err) = e.downcast_ref::<ShitRustError>() {
+                    if let Some(sr_err) = e.downcast_ref::<BruteError>() {
                         eprintln!("{}", sr_err.format_error());
                     } else {
                         eprintln!("{}: {}", "Error".red().bold(), e);
@@ -265,10 +264,10 @@ fn main() -> Result<()> {
             
             let filename = input.to_string_lossy().to_string();
             
-            let mut lexer = shitrust::lexer::Lexer::with_filename(&source, filename);
+            let mut lexer = brute::lexer::Lexer::with_filename(&source, filename);
             let tokens = lexer.scan_tokens()?;
             
-            let mut parser = shitrust::parser::Parser::new(tokens);
+            let mut parser = brute::parser::Parser::new(tokens);
             let program = parser.parse()?;
             
             let mut type_checker = TypeChecker::new();
@@ -278,12 +277,8 @@ fn main() -> Result<()> {
                     Ok(())
                 },
                 Err(e) => {
-                    if let Some(sr_err) = e.downcast_ref::<ShitRustError>() {
-                        eprintln!("{}", sr_err.format_error());
-                    } else {
-                        eprintln!("{}: {}", "Type Error".red().bold(), e);
-                    }
-                    Err(e)
+                    eprintln!("{}", e.format_error());
+                    Err(anyhow::Error::new(e))
                 }
             }
         }
@@ -320,7 +315,7 @@ fn main() -> Result<()> {
             }
         },
         Commands::Info => {
-            println!("{}", "ShitRust Programming Language".green().bold());
+            println!("{}", "Brute Programming Language".green().bold());
             println!("Version: {}", env!("CARGO_PKG_VERSION").cyan());
             println!("Authors: {}", env!("CARGO_PKG_AUTHORS").cyan());
             
@@ -344,16 +339,14 @@ fn main() -> Result<()> {
             println!("  • Pipeline operator");
             
             println!("\n{}", "Usage Examples:".yellow().bold());
-            println!("  Compile:    {} examples/hello.sr", "shitrust compile".cyan());
-            println!("  Run:        {} examples/hello.sr", "shitrust run".cyan());
-            println!("  Type check: {} examples/hello.sr", "shitrust check".cyan());
-            println!("  Run async:  {} examples/async.sr", "shitrust run-async".cyan());
-            println!("  Format:     {} -i examples/hello.sr", "shitrust format".cyan());
+            println!("  Compile:    {} examples/hello.brt", "brute compile".cyan());
+            println!("  Run:        {} examples/hello.brt", "brute run".cyan());
+            println!("  Type check: {} examples/hello.brt", "brute check".cyan());
+            println!("  Run async:  {} examples/async.brt", "brute run-async".cyan());
+            println!("  Format:     {} -i examples/hello.brt", "brute format".cyan());
             
             println!("\n{}:", "More Information".yellow().bold());
-            println!("  Website: {}", "https://shitrust-lang.org".cyan());
-            println!("  GitHub:  {}", "https://github.com/Waowzar/shitrust".cyan());
-            println!("  Docs:    {}", "https://docs.shitrust-lang.org".cyan());
+            println!("  GitHub:  {}", "https://github.com/Waowzar/brute".cyan());
             
             Ok(())
         }

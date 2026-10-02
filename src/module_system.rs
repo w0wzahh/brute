@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::fs;
-use crate::error::{ShitRustError, Result};
+use crate::error::{BruteError, Result};
 use crate::interpreter::{Interpreter, Value};
 use crate::ast::{Stmt, Program};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 
-/// Represents a module in the ShitRust language
+/// Represents a module in the Brute language
 pub struct Module {
     /// Name of the module
     pub name: String,
@@ -41,7 +41,7 @@ impl Module {
         
         // Read the file content
         let content = fs::read_to_string(&self.path)
-            .map_err(|e| ShitRustError::IOException(format!("Error reading module '{}': {}", self.name, e)))?;
+            .map_err(|e| BruteError::IOException(format!("Error reading module '{}': {}", self.name, e)))?;
         
         // Parse the file
         let mut lexer = Lexer::with_filename(&content, self.path.to_string_lossy().into_owned());
@@ -61,7 +61,7 @@ impl Module {
     fn execute_module(&mut self, program: Program, interpreter: &mut Interpreter) -> Result<()> {
         // Create a new environment for the module
         let previous_env = interpreter.get_environment();
-        let module_env = interpreter.create_module_environment();
+        let _module_env = interpreter.create_module_environment();
         
         // Execute all statements in the module
         for stmt in program.statements {
@@ -158,28 +158,24 @@ impl ModuleRegistry {
     
     /// Initialize standard library modules
     fn init_stdlib(&mut self) {
-        // Initialize standard library modules
-        use crate::stdlib::collections;
-        use crate::stdlib::io;
-        use crate::stdlib::time;
-        
-        // Register standard library modules
-        let collections_module: HashMap<String, Value> = collections::init_collections_module()
-            .into_iter()
-            .collect();
-        self.stdlib_modules.insert("collections".to_string(), collections_module);
-        
-        let io_module: HashMap<String, Value> = io::init_io_module()
-            .into_iter()
-            .collect();
-        self.stdlib_modules.insert("io".to_string(), io_module);
-        
-        let time_module: HashMap<String, Value> = time::init_time_module()
-            .into_iter()
-            .collect();
-        self.stdlib_modules.insert("time".to_string(), time_module);
-        
-        // Additional modules can be added here as they are implemented
+        use crate::stdlib::*;
+
+        let modules: &[(&str, HashMap<String, Value>)] = &[
+            ("io",            io::module()),
+            ("collections",   collections::module()),
+            ("time",          time::module()),
+            ("string",        string::module()),
+            ("math",          math::module()),
+            ("fs",            fs::module()),
+            ("net",           net::module()),
+            ("async_runtime", async_runtime::module()),
+            ("crypto",        crypto::module()),
+            ("concurrent",    concurrent::module()),
+        ];
+
+        for (name, exports) in modules {
+            self.stdlib_modules.insert((*name).to_string(), exports.clone());
+        }
     }
     
     /// Import a module
@@ -218,21 +214,21 @@ impl ModuleRegistry {
         
         // Try to find the module in search paths
         for search_path in &self.search_paths {
-            // Try .sr extension first
-            let file_path = search_path.join(&path_name).with_extension("sr");
+            // Try .brt extension first
+            let file_path = search_path.join(&path_name).with_extension("fe");
             if file_path.exists() {
                 return Ok(file_path);
             }
             
-            // Try directory with __init__.sr
+            // Try directory with __init__.brt
             let dir_path = search_path.join(&path_name);
-            let init_path = dir_path.join("__init__.sr");
+            let init_path = dir_path.join("__init__.brt");
             if init_path.exists() {
                 return Ok(init_path);
             }
         }
         
-        Err(ShitRustError::ModuleNotFound(name.to_string()))
+        Err(BruteError::ModuleNotFound(name.to_string()))
     }
     
     /// Register a built-in module

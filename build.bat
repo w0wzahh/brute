@@ -1,8 +1,8 @@
 @echo off
-REM Build script for ShitRust compiler on Windows
+REM Build script for Brute compiler on Windows
 setlocal EnableDelayedExpansion
 
-echo [92m=== ShitRust Compiler Build Script ===[0m
+echo [92m=== Brute Compiler Build Script ===[0m
 
 REM Display version information
 for /f "tokens=3" %%a in ('findstr /C:"version" Cargo.toml') do (
@@ -10,7 +10,7 @@ for /f "tokens=3" %%a in ('findstr /C:"version" Cargo.toml') do (
     set VERSION=!VERSION:"=!
     set VERSION=!VERSION:,=!
 )
-echo [36mShitRust version !VERSION![0m
+echo [36mBrute version !VERSION![0m
 
 REM Display help if requested
 if "%1"=="help" goto showhelp
@@ -30,17 +30,17 @@ if "%1"=="release" (
     echo [93mBuilding release version...[0m
     set BUILD_TYPE=release
     cargo build --release
-    echo [92mBuild complete! Binary at .\target\release\shitrust.exe[0m
+    echo [92mBuild complete! Binary at .\target\release\brute.exe[0m
 ) else (
     echo [93mBuilding debug version...[0m
     set BUILD_TYPE=debug
     cargo build
-    echo [92mBuild complete! Binary at .\target\debug\shitrust.exe[0m
+    echo [92mBuild complete! Binary at .\target\debug\brute.exe[0m
 )
 
 REM Install if requested
 if "%1"=="install" (
-    echo [93mInstalling ShitRust...[0m
+    echo [93mInstalling Brute...[0m
     cargo install --path .
     echo [92mInstallation complete![0m
 )
@@ -64,7 +64,7 @@ REM Generate documentation if requested
 if "%1"=="docs" (
     echo [93mGenerating documentation...[0m
     cargo doc --no-deps
-    echo [92mDocumentation generated at .\target\doc\shitrust\index.html[0m
+    echo [92mDocumentation generated at .\target\doc\brute\index.html[0m
     goto end
 )
 
@@ -72,20 +72,20 @@ REM Run example with timing if requested
 if "%1"=="bench" (
     echo [93mRunning benchmark...[0m
     
-    if exist ".\target\release\shitrust.exe" (
-        set BIN=.\target\release\shitrust.exe
+    if exist ".\target\release\brute.exe" (
+        set BIN=.\target\release\brute.exe
     ) else (
         echo [91mError: Release build not found. Building release version first...[0m
         cargo build --release
-        if not exist ".\target\release\shitrust.exe" (
+        if not exist ".\target\release\brute.exe" (
             echo [91mError: Failed to build release version.[0m
             goto end
         )
-        set BIN=.\target\release\shitrust.exe
+        set BIN=.\target\release\brute.exe
     )
     
     echo [93mRunning benchmark with timing information...[0m
-    %BIN% -t run examples\advanced.sr
+    %BIN% -t run examples\advanced.brt
     
     echo [92mBenchmark complete![0m
     goto end
@@ -95,22 +95,22 @@ REM Run examples if requested
 if "%1"=="examples" (
     echo [93mRunning examples...[0m
     
-    if exist ".\target\%BUILD_TYPE%\shitrust.exe" (
-        set BIN=.\target\%BUILD_TYPE%\shitrust.exe
-    ) else if exist ".\target\debug\shitrust.exe" (
-        set BIN=.\target\debug\shitrust.exe
-    ) else if exist ".\target\release\shitrust.exe" (
-        set BIN=.\target\release\shitrust.exe
+    if exist ".\target\%BUILD_TYPE%\brute.exe" (
+        set BIN=.\target\%BUILD_TYPE%\brute.exe
+    ) else if exist ".\target\debug\brute.exe" (
+        set BIN=.\target\debug\brute.exe
+    ) else if exist ".\target\release\brute.exe" (
+        set BIN=.\target\release\brute.exe
     ) else (
-        echo [91mError: ShitRust binary not found. Build first.[0m
+        echo [91mError: Brute binary not found. Build first.[0m
         goto end
     )
     
-    echo [93mRunning hello.sr...[0m
-    %BIN% run examples\hello.sr
+    echo [93mRunning hello.brt...[0m
+    %BIN% run examples\hello.brt
     
-    echo [93mRunning features.sr...[0m
-    %BIN% run examples\features.sr
+    echo [93mRunning features.brt...[0m
+    %BIN% run examples\features.brt
     
     echo [92mExamples complete![0m
     goto end
@@ -118,16 +118,16 @@ if "%1"=="examples" (
 
 REM Show version and info if requested
 if "%1"=="info" (
-    echo [93mShowing ShitRust information...[0m
+    echo [93mShowing Brute information...[0m
     
-    if exist ".\target\%BUILD_TYPE%\shitrust.exe" (
-        set BIN=.\target\%BUILD_TYPE%\shitrust.exe
-    ) else if exist ".\target\debug\shitrust.exe" (
-        set BIN=.\target\debug\shitrust.exe
-    ) else if exist ".\target\release\shitrust.exe" (
-        set BIN=.\target\release\shitrust.exe
+    if exist ".\target\%BUILD_TYPE%\brute.exe" (
+        set BIN=.\target\%BUILD_TYPE%\brute.exe
+    ) else if exist ".\target\debug\brute.exe" (
+        set BIN=.\target\debug\brute.exe
+    ) else if exist ".\target\release\brute.exe" (
+        set BIN=.\target\release\brute.exe
     ) else (
-        echo [91mError: ShitRust binary not found. Build first.[0m
+        echo [91mError: Brute binary not found. Build first.[0m
         goto end
     )
     
@@ -138,7 +138,7 @@ if "%1"=="info" (
 goto end
 
 :showhelp
-echo [92mShitRust Build Script Help[0m
+echo [92mBrute Build Script Help[0m
 echo.
 echo [93mUsage: build.bat [command][0m
 echo.
@@ -146,13 +146,13 @@ echo [96mCommands:[0m
 echo   [no command]   Build debug version
 echo   release        Build release version
 echo   clean          Clean build artifacts
-echo   install        Install ShitRust compiler
+echo   install        Install Brute compiler
 echo   test           Run tests
 echo   examples       Run example programs
 echo   bench          Run benchmark with timing information
 echo   docs           Generate documentation
 echo   assets         Create assets directory
-echo   info           Show ShitRust information
+echo   info           Show Brute information
 echo   help, -h       Show this help message
 echo.
 

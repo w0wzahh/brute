@@ -1,7 +1,7 @@
-# ShitRust Language Guide
+# Brute Language Guide
 
 <div align="center">
-  <img src="../assets/icon.svg" alt="ShitRust Logo" width="200" />
+  <img src="../assets/icon.svg" alt="Brute Logo" width="200" />
   <h3>The pragmatic combination of Rust, Python, and C/C++</h3>
 </div>
 
@@ -31,9 +31,9 @@
 
 ## Introduction
 
-ShitRust is a modern programming language that combines features from Rust, Python, and C/C++. It aims to provide memory safety, performance, and ease of use in a pragmatic package.
+Brute is a modern programming language that combines features from Rust, Python, and C/C++. It aims to provide memory safety, performance, and ease of use in a pragmatic package.
 
-Key design principles of ShitRust:
+Key design principles of Brute:
 
 1. **Safety First**: Prevent memory errors and race conditions at compile time
 2. **Developer Ergonomics**: Readable syntax and helpful error messages
@@ -62,7 +62,7 @@ Key design principles of ShitRust:
 // Variables are immutable by default
 let x = 5;             // Type inference determines this is an int
 let y: float = 3.14;   // Explicit type annotation
-let name: string = "ShitRust";  // String type
+let name: string = "Brute";  // String type
 let active: bool = true;        // Boolean type
 
 // Mutable variables use the 'mut' keyword
@@ -487,7 +487,7 @@ let str_val = str_box.get();  // "Hello"
 
 ## Memory Management
 
-ShitRust combines manual and automatic memory management for flexibility and safety:
+Brute combines manual and automatic memory management for flexibility and safety:
 
 ```rust
 // Stack allocation (automatic cleanup)
@@ -528,7 +528,7 @@ fn process_file(path: string) -> void {
 
 ## Standard Library
 
-ShitRust includes a comprehensive standard library:
+Brute includes a comprehensive standard library:
 
 - `io`: File and stream I/O operations
 - `net`: Networking utilities
@@ -566,7 +566,7 @@ println(data["name"]);  // "Alice"
 
 ## Interoperability
 
-ShitRust can interoperate with C and Rust libraries:
+Brute can interoperate with C and Rust libraries:
 
 ```rust
 // C function binding
@@ -585,7 +585,7 @@ extern "Rust" {
     fn process_data(data: *u8, len: usize) -> bool;
 }
 
-// Export ShitRust function for other languages
+// Export Brute function for other languages
 #[export]
 fn calculate(x: int, y: int) -> int {
     return x * y + x;
@@ -594,13 +594,13 @@ fn calculate(x: int, y: int) -> int {
 
 ## Best Practices
 
-Here are some recommended practices when writing ShitRust code:
+Here are some recommended practices when writing Brute code:
 
 1. **Use strong typing**: Explicitly define types for function parameters and return values.
 2. **Prefer immutability**: Use `let` instead of `let mut` when possible.
 3. **Handle errors properly**: Use Result and Option types to handle potential failures.
 4. **Use meaningful names**: Choose descriptive names for variables, functions, and types.
-5. **Format your code**: Use the built-in formatter (`shitrust format`) to maintain consistent style.
+5. **Format your code**: Use the built-in formatter (`brute format`) to maintain consistent style.
 6. **Write tests**: Include unit tests for your code to ensure correctness.
 7. **Document your code**: Use documentation comments (`///`) to explain functionality.
 8. **Use pattern matching**: Prefer pattern matching over complicated if-else chains.
@@ -609,4 +609,4 @@ Here are some recommended practices when writing ShitRust code:
 
 ---
 
-This guide provides an introduction to ShitRust programming. For a complete reference, please refer to the official documentation. 
+This guide provides an introduction to Brute programming. For a complete reference, please refer to the official documentation. 

@@ -22,8 +22,7 @@ release/
 *.swo
 .DS_Store
 
-# Website files - excluding from git
-/website/
+
 
 # Documentation build
 /doc/
@@ -32,3 +31,9 @@ release/
 .tmp/
 .temp/
 *.tmp 
+# Website (Next.js)
+website/node_modules/
+website/.next/
+website/out/
+website/dev.log
+website-legacy/

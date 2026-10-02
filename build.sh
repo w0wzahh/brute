@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build script for ShitRust compiler on Linux/macOS
+# Build script for Brute compiler on Linux/macOS
 
 # ANSI color codes
 RED='\033[0;31m'
@@ -10,15 +10,15 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}${BOLD}=== ShitRust Compiler Build Script ===${NC}"
+echo -e "${GREEN}${BOLD}=== Brute Compiler Build Script ===${NC}"
 
 # Display version information
 VERSION=$(grep -m 1 "version" Cargo.toml | cut -d '"' -f2)
-echo -e "${CYAN}ShitRust version ${VERSION}${NC}"
+echo -e "${CYAN}Brute version ${VERSION}${NC}"
 
 # Display help if requested
 if [[ "$1" == "help" || "$1" == "-h" || "$1" == "--help" ]]; then
-    echo -e "${GREEN}${BOLD}ShitRust Build Script Help${NC}"
+    echo -e "${GREEN}${BOLD}Brute Build Script Help${NC}"
     echo
     echo -e "${YELLOW}Usage: ./build.sh [command]${NC}"
     echo
@@ -26,13 +26,13 @@ if [[ "$1" == "help" || "$1" == "-h" || "$1" == "--help" ]]; then
     echo "  [no command]   Build debug version"
     echo "  release        Build release version"
     echo "  clean          Clean build artifacts"
-    echo "  install        Install ShitRust compiler"
+    echo "  install        Install Brute compiler"
     echo "  test           Run tests"
     echo "  examples       Run example programs"
     echo "  bench          Run benchmark with timing information"
     echo "  docs           Generate documentation"
     echo "  assets         Create assets directory"
-    echo "  info           Show ShitRust information"
+    echo "  info           Show Brute information"
     echo "  help, -h       Show this help message"
     echo
     exit 0
@@ -54,16 +54,16 @@ if [ "$1" == "release" ]; then
     echo -e "${YELLOW}Building release version...${NC}"
     BUILD_TYPE="release"
     cargo build --release
-    echo -e "${GREEN}${BOLD}Build complete! Binary at ./target/release/shitrust${NC}"
+    echo -e "${GREEN}${BOLD}Build complete! Binary at ./target/release/brute${NC}"
 else
     echo -e "${YELLOW}Building debug version...${NC}"
     cargo build
-    echo -e "${GREEN}${BOLD}Build complete! Binary at ./target/debug/shitrust${NC}"
+    echo -e "${GREEN}${BOLD}Build complete! Binary at ./target/debug/brute${NC}"
 fi
 
 # Install if requested
 if [ "$1" == "install" ]; then
-    echo -e "${YELLOW}Installing ShitRust...${NC}"
+    echo -e "${YELLOW}Installing Brute...${NC}"
     cargo install --path .
     echo -e "${GREEN}${BOLD}Installation complete!${NC}"
 fi
@@ -88,15 +88,15 @@ fi
 if [ "$1" == "docs" ]; then
     echo -e "${YELLOW}Generating documentation...${NC}"
     cargo doc --no-deps
-    echo -e "${GREEN}${BOLD}Documentation generated at ./target/doc/shitrust/index.html${NC}"
+    echo -e "${GREEN}${BOLD}Documentation generated at ./target/doc/brute/index.html${NC}"
     
     # Open docs in browser if supported
     if command -v xdg-open &> /dev/null; then
         echo -e "${YELLOW}Opening documentation in browser...${NC}"
-        xdg-open ./target/doc/shitrust/index.html
+        xdg-open ./target/doc/brute/index.html
     elif command -v open &> /dev/null; then
         echo -e "${YELLOW}Opening documentation in browser...${NC}"
-        open ./target/doc/shitrust/index.html
+        open ./target/doc/brute/index.html
     fi
     
     exit 0
@@ -106,20 +106,20 @@ fi
 if [ "$1" == "bench" ]; then
     echo -e "${YELLOW}Running benchmark...${NC}"
     
-    if [ -f "./target/release/shitrust" ]; then
-        BIN="./target/release/shitrust"
+    if [ -f "./target/release/brute" ]; then
+        BIN="./target/release/brute"
     else
         echo -e "${RED}Error: Release build not found. Building release version first...${NC}"
         cargo build --release
-        if [ ! -f "./target/release/shitrust" ]; then
+        if [ ! -f "./target/release/brute" ]; then
             echo -e "${RED}Error: Failed to build release version.${NC}"
             exit 1
         fi
-        BIN="./target/release/shitrust"
+        BIN="./target/release/brute"
     fi
     
     echo -e "${YELLOW}Running benchmark with timing information...${NC}"
-    $BIN -t run examples/advanced.sr
+    $BIN -t run examples/advanced.brt
     
     echo -e "${GREEN}${BOLD}Benchmark complete!${NC}"
     exit 0
@@ -129,22 +129,22 @@ fi
 if [ "$1" == "examples" ]; then
     echo -e "${YELLOW}Running examples...${NC}"
     
-    if [ -f "./target/$BUILD_TYPE/shitrust" ]; then
-        BIN="./target/$BUILD_TYPE/shitrust"
-    elif [ -f "./target/debug/shitrust" ]; then
-        BIN="./target/debug/shitrust"
-    elif [ -f "./target/release/shitrust" ]; then
-        BIN="./target/release/shitrust"
+    if [ -f "./target/$BUILD_TYPE/brute" ]; then
+        BIN="./target/$BUILD_TYPE/brute"
+    elif [ -f "./target/debug/brute" ]; then
+        BIN="./target/debug/brute"
+    elif [ -f "./target/release/brute" ]; then
+        BIN="./target/release/brute"
     else
-        echo -e "${RED}Error: ShitRust binary not found. Build first.${NC}"
+        echo -e "${RED}Error: Brute binary not found. Build first.${NC}"
         exit 1
     fi
     
-    echo -e "${YELLOW}Running hello.sr...${NC}"
-    $BIN run examples/hello.sr
+    echo -e "${YELLOW}Running hello.brt...${NC}"
+    $BIN run examples/hello.brt
     
-    echo -e "${YELLOW}Running features.sr...${NC}"
-    $BIN run examples/features.sr
+    echo -e "${YELLOW}Running features.brt...${NC}"
+    $BIN run examples/features.brt
     
     echo -e "${GREEN}${BOLD}Examples complete!${NC}"
     exit 0
@@ -152,16 +152,16 @@ fi
 
 # Show version and info if requested
 if [ "$1" == "info" ]; then
-    echo -e "${YELLOW}Showing ShitRust information...${NC}"
+    echo -e "${YELLOW}Showing Brute information...${NC}"
     
-    if [ -f "./target/$BUILD_TYPE/shitrust" ]; then
-        BIN="./target/$BUILD_TYPE/shitrust"
-    elif [ -f "./target/debug/shitrust" ]; then
-        BIN="./target/debug/shitrust"
-    elif [ -f "./target/release/shitrust" ]; then
-        BIN="./target/release/shitrust"
+    if [ -f "./target/$BUILD_TYPE/brute" ]; then
+        BIN="./target/$BUILD_TYPE/brute"
+    elif [ -f "./target/debug/brute" ]; then
+        BIN="./target/debug/brute"
+    elif [ -f "./target/release/brute" ]; then
+        BIN="./target/release/brute"
     else
-        echo -e "${RED}Error: ShitRust binary not found. Build first.${NC}"
+        echo -e "${RED}Error: Brute binary not found. Build first.${NC}"
         exit 1
     fi
     

@@ -1,46 +1,44 @@
 [package]
-name = "shitrust"
-version = "0.4.0"
+name = "brute"
+version = "0.5.0"
 edition = "2021"
 authors = ["Waowzar"]
-description = "A programming language combining features from Rust, Python, and C/C++"
+description = "Brute — a programming language combining features from Rust, Python, and C/C++"
 readme = "README.md"
 license = "MIT"
-repository = "https://github.com/Waowzar/shitrust"
+repository = "https://github.com/Waowzar/brute"
+
+[features]
+# The LLVM backend is optional. It is only required for `brute compile`
+# (native code generation). The interpreter (`run`, `check`, `format`)
+# builds and works without LLVM installed.
+default = []
+llvm = ["dep:inkwell", "dep:tempfile"]
 
 [dependencies]
 clap = { version = "4.4", features = ["derive"] }
-pest = "2.7"
-pest_derive = "2.7"
 anyhow = "1.0"
 thiserror = "1.0"
 colored = "2.0"
 lazy_static = "1.4"
-inkwell = { version = "0.2.0", features = ["llvm16-0"] }
-tempfile = "3.8"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-log = "0.4"
-env_logger = "0.10"
-regex = "1.10"
-tokio = { version = "1.32", features = ["full"] }
-futures = "0.3"
-async-trait = "0.1"
 
-# New dependencies for the improved version
+# Native code generation (optional — needs LLVM 16 installed)
+inkwell = { version = "0.2.0", features = ["llvm16-0"], optional = true }
+tempfile = { version = "3.8", optional = true }
+
+# Standard library
 sha2 = "0.10"
 hmac = "0.12"
 aes-gcm = "0.10"
 rand = "0.8"
 base64 = "0.21"
-thread_local = "1.1"
 
 [lib]
-name = "shitrust"
+name = "brute"
 path = "src/lib.rs"
 
 [[bin]]
-name = "shitrust"
+name = "brute"
 path = "src/main.rs"
 
 [profile.release]
@@ -51,4 +49,4 @@ panic = "abort"
 strip = true
 
 [profile.dev.package."*"]
-opt-level = 1 
+opt-level = 1

@@ -1,0 +1,245 @@
+// Brute Advanced Features Example
+// This example demonstrates the new and advanced features of Brute
+
+// Import modules from standard library
+use stdlib::collections::HashMap;
+use stdlib::time::Duration;
+use stdlib::concurrent::{spawn, sleep, Mutex, Arc};
+use stdlib::crypto::{sha256, encrypt, decrypt, generate_aes_key, generate_nonce};
+use stdlib::async_runtime::{AsyncRuntime};
+
+// Generic type with type parameter
+struct Queue<T> {
+    items: [T],
+    
+    // Method with generic type
+    pub fn new() -> Queue<T> {
+        Queue { items: [] }
+    }
+    
+    pub fn enqueue(mut this, item: T) -> void {
+        this.items.push(item);
+    }
+    
+    pub fn dequeue(mut this) -> Option<T> {
+        if this.items.is_empty() {
+            return None;
+        }
+        return Some(this.items.remove(0));
+    }
+    
+    pub fn size(this) -> int {
+        return this.items.len();
+    }
+}
+
+// Trait definition
+trait Printable {
+    fn to_string(this) -> string;
+    fn print(this) -> void {
+        println(this.to_string());
+    }
+}
+
+// Struct implementing a trait
+struct Person {
+    name: string,
+    age: int,
+    
+    pub fn new(name: string, age: int) -> Person {
+        Person { name, age }
+    }
+}
+
+// Trait implementation
+impl Printable for Person {
+    fn to_string(this) -> string {
+        return "Person { name: \"" + this.name + "\", age: " + this.age.to_string() + " }";
+    }
+}
+
+// Enum with variants
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+    
+    pub fn is_ok(this) -> bool {
+        match this {
+            Result::Ok(_) => true,
+            _ => false
+        }
+    }
+    
+    pub fn is_err(this) -> bool {
+        match this {
+            Result::Err(_) => true,
+            _ => false
+        }
+    }
+    
+    pub fn unwrap(this) -> T {
+        match this {
+            Result::Ok(value) => value,
+            Result::Err(err) => panic("Called unwrap on an Err: " + err.to_string())
+        }
+    }
+}
+
+// Asynchronous function example
+async fn fetch_data(url: string) -> string {
+    // Simulate network delay
+    await sleep(1000);
+    return "Data from " + url;
+}
+
+// Function using the pipeline operator
+fn process_data(data: string) -> string {
+    return data
+        |> str_trim
+        |> str_uppercase
+        |> (s => s + "!");
+}
+
+// Function demonstrating pattern matching
+fn describe_value(value: any) -> string {
+    match value {
+        0 => "Zero",
+        n if n > 0 => "Positive number: " + n.to_string(),
+        n if n < 0 => "Negative number: " + n.to_string(),
+        "hello" => "Greeting",
+        s if s is string => "String: " + s,
+        [a, b, ...rest] => "List with " + (rest.len() + 2).to_string() + " elements",
+        { name, age } if age > 18 => "Adult named " + name,
+        _ => "Unknown value"
+    }
+}
+
+// Function demonstrating error handling
+fn divide(a: int, b: int) -> Result<float, string> {
+    if b == 0 {
+        return Result::Err("Division by zero");
+    }
+    return Result::Ok(a as float / b as float);
+}
+
+// Main function using concurrency
+fn main() -> void {
+    println("=== Brute Advanced Features Demo ===\n");
+    
+    // Generic types
+    println("--- Generic Types ---");
+    let queue = Queue::<string>::new();
+    queue.enqueue("first");
+    queue.enqueue("second");
+    queue.enqueue("third");
+    println("Queue size: " + queue.size().to_string());
+    println("Dequeued: " + queue.dequeue().unwrap());
+    println();
+    
+    // Traits
+    println("--- Traits ---");
+    let person = Person::new("Alice", 28);
+    // Calling trait methods
+    println("Person to string: " + person.to_string());
+    person.print();
+    println();
+    
+    // Pattern matching
+    println("--- Pattern Matching ---");
+    println(describe_value(42));
+    println(describe_value(-7));
+    println(describe_value("hello"));
+    println(describe_value("world"));
+    println(describe_value([1, 2, 3, 4]));
+    println(describe_value({ name: "Bob", age: 25 }));
+    println();
+    
+    // Error handling
+    println("--- Error Handling ---");
+    let result1 = divide(10, 2);
+    if result1.is_ok() {
+        println("10 / 2 = " + result1.unwrap().to_string());
+    }
+    
+    let result2 = divide(5, 0);
+    if result2.is_err() {
+        match result2 {
+            Result::Err(msg) => println("Error: " + msg),
+            _ => {}
+        }
+    }
+    println();
+    
+    // Pipeline operator
+    println("--- Pipeline Operator ---");
+    let processed = process_data("  hello world  ");
+    println("Processed data: " + processed);
+    println();
+    
+    // Concurrency
+    println("--- Concurrency ---");
+    // Create shared counter with mutex
+    let counter = Arc::new(Mutex::new(0));
+    
+    // Clone counters for threads
+    let counter1 = counter.clone();
+    let counter2 = counter.clone();
+    
+    // Spawn threads
+    let handle1 = spawn(fn() -> void {
+        for i in 0..5 {
+            let mut count = counter1.lock();
+            *count += 1;
+            println("Thread 1: " + count.to_string());
+            sleep(100);
+        }
+    });
+    
+    let handle2 = spawn(fn() -> void {
+        for i in 0..5 {
+            let mut count = counter2.lock();
+            *count += 1;
+            println("Thread 2: " + count.to_string());
+            sleep(150);
+        }
+    });
+    
+    // Wait for threads to complete
+    handle1.join();
+    handle2.join();
+    
+    // Show final counter value
+    println("Final counter value: " + counter.lock().to_string());
+    println();
+    
+    // Async/await
+    println("--- Async/Await ---");
+    let runtime = AsyncRuntime::new();
+    
+    // Run async function
+    let data = runtime.block_on(fetch_data("https://example.com"));
+    println(data);
+    println();
+    
+    // Cryptography
+    println("--- Cryptography ---");
+    let message = "Hello, encrypted world!";
+    println("Original message: " + message);
+    
+    // Generate key and nonce
+    let key = generate_aes_key();
+    let nonce = generate_nonce();
+    
+    // Hash the message
+    println("SHA-256 hash: " + sha256(message));
+    
+    // Encrypt and decrypt
+    let encrypted = encrypt(key, nonce, message);
+    println("Encrypted: " + encrypted);
+    
+    let decrypted = decrypt(key, nonce, encrypted);
+    println("Decrypted: " + decrypted);
+    println();
+    
+    println("=== Demo Complete ===");
+} 

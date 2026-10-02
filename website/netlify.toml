@@ -1,0 +1,85 @@
+[build]
+  publish = "out"
+  command = "npm install && npm run build"
+
+# Repository information
+[build.environment]
+  GITHUB_REPO = "https://github.com/w0wzahh/brute"
+  GITHUB_USERNAME = "w0wzahh"
+  REPO_NAME = "brute"
+  REPO_DESCRIPTION = "Brute is a programming language that combines features from Rust, Python, and C/C++."
+
+[dev]
+  framework = "nextjs"
+  command = "npm run dev"
+  port = 8888
+  targetPort = 3000
+  autoLaunch = true
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self'"
+
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Legacy .html paths -> new routes
+[[redirects]]
+  from = "/guide.html"
+  to = "/docs/guide"
+  status = 301
+[[redirects]]
+  from = "/reference.html"
+  to = "/docs/reference"
+  status = 301
+[[redirects]]
+  from = "/api.html"
+  to = "/docs/api"
+  status = 301
+[[redirects]]
+  from = "/examples.html"
+  to = "/examples"
+  status = 301
+[[redirects]]
+  from = "/features.html"
+  to = "/features"
+  status = 301
+[[redirects]]
+  from = "/about.html"
+  to = "/about"
+  status = 301
+[[redirects]]
+  from = "/index.html"
+  to = "/"
+  status = 301
+
+[[redirects]]
+  from = "/github"
+  to = "https://github.com/w0wzahh/brute"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/repo"
+  to = "https://github.com/w0wzahh/brute"
+  status = 301
+  force = true

@@ -1,17 +1,23 @@
 use std::path::Path;
-use std::process::Command;
 use anyhow::{Result, Context};
-use inkwell::context::Context;
-use tempfile::NamedTempFile;
-use std::fs;
 use colored::Colorize;
 use std::time::{Instant, Duration};
+
+#[cfg(feature = "llvm")]
+use std::process::Command;
+#[cfg(feature = "llvm")]
+use std::fs;
+#[cfg(feature = "llvm")]
+use inkwell::context::Context;
+#[cfg(feature = "llvm")]
+use tempfile::NamedTempFile;
 
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::interpreter::Interpreter;
+#[cfg(feature = "llvm")]
 use crate::code_gen::CodeGen;
-use crate::error::ShitRustError;
+use crate::error::BruteError;
 
 /// Compiler configuration options
 #[derive(Debug, Clone)]
@@ -48,7 +54,7 @@ impl Default for CompilerOptions {
     }
 }
 
-/// The main compiler for ShitRust language
+/// The main compiler for Brute language
 pub struct Compiler {
     interpreter: Interpreter,
     options: CompilerOptions,
@@ -94,6 +100,7 @@ impl CompilationTimer {
         self.start_time.elapsed()
     }
     
+    #[cfg(feature = "llvm")]
     fn report_total(&self, success: bool) {
         if self.enabled {
             let total = self.total();
@@ -148,8 +155,28 @@ impl Compiler {
         self.compile_with_filename(source, output_path, None)
     }
     
-    /// Compile the source code with a filename for better error reporting
+    /// Compile the source code with a filename for better error reporting.
+    ///
+    /// Requires the `llvm` cargo feature — without it, native compilation is
+    /// unavailable and this returns an explanatory error.
     pub fn compile_with_filename(&self, source: &str, output_path: &Path, filename: Option<String>) -> Result<()> {
+        #[cfg(feature = "llvm")]
+        {
+            self.compile_native(source, output_path, filename)
+        }
+        #[cfg(not(feature = "llvm"))]
+        {
+            let _ = (source, output_path, filename);
+            Err(anyhow::anyhow!(
+                "this build of brute was made without the LLVM backend; \
+                 rebuild with `cargo build --features llvm` to use `brute compile`"
+            ))
+        }
+    }
+
+    /// Compile the source code to a native executable via LLVM.
+    #[cfg(feature = "llvm")]
+    fn compile_native(&self, source: &str, output_path: &Path, filename: Option<String>) -> Result<()> {
         let mut timer = CompilationTimer::new(
             self.options.verbose || self.options.show_timings,
             self.options.color_output
@@ -196,7 +223,7 @@ impl Compiler {
         log_msg("Generating LLVM IR code...", &mut timer);
         
         let context = Context::create();
-        let mut code_gen = CodeGen::new(&context, "shitrust_module");
+        let mut code_gen = CodeGen::new(&context, "brute_module");
         
         // Set code generator options
         code_gen.set_optimization_level(self.options.optimization_level);
@@ -360,9 +387,19 @@ impl Compiler {
             }
         }
         
+        // The tree-walking interpreter uses deep Rust-side recursion — run it
+        // on a dedicated thread with a large stack (Windows' default main-thread
+        // stack is only 1 MB and overflows at modest recursion depth).
         let mut interpreter = self.interpreter.clone();
-        interpreter.interpret(&program)
-            .context("Failed during interpretation")?;
+        let program = program;
+        let handle = std::thread::Builder::new()
+            .stack_size(256 * 1024 * 1024)
+            .spawn(move || interpreter.interpret(&program))
+            .context("Failed to spawn interpreter thread")?;
+        match handle.join() {
+            Ok(res) => res.context("Failed during interpretation")?,
+            Err(_)  => anyhow::bail!("Interpreter thread panicked"),
+        }
         
         timer.checkpoint("Interpretation completed");
         
@@ -381,7 +418,7 @@ impl Compiler {
         Ok(())
     }
 
-    /// Run a ShitRust program with asynchronous support from source string with an optional filename
+    /// Run a Brute program with asynchronous support from source string with an optional filename
     pub fn run_async_with_filename(&self, source: &str, filename: Option<String>) -> Result<()> {
         let start_time = std::time::Instant::now();
         
@@ -417,8 +454,17 @@ impl Compiler {
         // Add AsyncRuntime to the environment
         interpreter.load_module("stdlib::async_runtime")?;
         
-        // Execute program
-        interpreter.execute_async(&program)?;
+        // Execute program (on a big-stack thread — deep interpreter recursion
+        // overflows the default main-thread stack)
+        let program = program;
+        let handle = std::thread::Builder::new()
+            .stack_size(256 * 1024 * 1024)
+            .spawn(move || interpreter.execute_async(&program))
+            .context("Failed to spawn interpreter thread")?;
+        match handle.join() {
+            Ok(res) => res?,
+            Err(_)  => anyhow::bail!("Interpreter thread panicked"),
+        }
         
         // Show timing if requested
         if self.options.show_timings {

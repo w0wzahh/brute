@@ -1,20 +1,20 @@
-# Getting Started with ShitRust
+# Getting Started with Brute
 
-Welcome to ShitRust! This guide will help you get started with the ShitRust programming language.
+Welcome to Brute! This guide will help you get started with the Brute programming language.
 
 ## Installation
 
-Currently, ShitRust is in development, but you can build it from source:
+Currently, Brute is in development, but you can build it from source:
 
 ```bash
 # Clone the repository
-git clone https://github.com/Waowzar/shitrust.git
-cd shitrust
+git clone https://github.com/w0wzahh/brute.git
+cd brute
 
 # Build the compiler
 cargo build --release
 
-# Add ShitRust to your PATH
+# Add Brute to your PATH
 # For Linux/Mac
 export PATH="$PATH:$(pwd)/target/release"
 # For Windows
@@ -23,7 +23,7 @@ export PATH="$PATH:$(pwd)/target/release"
 
 ## Hello World
 
-Let's start with a simple "Hello, World!" program. Create a file named `hello.sr` with the following content:
+Let's start with a simple "Hello, World!" program. Create a file named `hello.brt` with the following content:
 
 ```sr
 fn main() -> void {
@@ -34,14 +34,14 @@ fn main() -> void {
 To run this program:
 
 ```bash
-shitrust run hello.sr
+brute run hello.brt
 ```
 
-Congratulations! You've just written and run your first ShitRust program.
+Congratulations! You've just written and run your first Brute program.
 
 ## Variables and Types
 
-ShitRust supports variable declarations with type inference:
+Brute supports variable declarations with type inference:
 
 ```sr
 // Variable declaration with type inference
@@ -55,7 +55,7 @@ let mut counter = 0;
 counter += 1; // This is allowed because counter is mutable
 ```
 
-ShitRust has several built-in types:
+Brute has several built-in types:
 
 - `int`: Integer numbers
 - `float`: Floating point numbers
@@ -202,7 +202,7 @@ println("Area 2: " + area2.to_string());
 
 ## Error Handling
 
-ShitRust provides robust error handling through the `Result` type:
+Brute provides robust error handling through the `Result` type:
 
 ```sr
 // Function that might fail
@@ -252,10 +252,10 @@ match process_and_count_words("data.txt") {
 
 ## Next Steps
 
-This tutorial has covered the basics of ShitRust. To learn more:
+This tutorial has covered the basics of Brute. To learn more:
 
-1. Check out the [Language Reference](language_reference.md) for a complete overview of ShitRust's features.
+1. Check out the [Language Reference](language_reference.md) for a complete overview of Brute's features.
 2. Explore the [Examples](../examples/) directory for more code samples.
 3. Read the [Language Grammar](language_grammar.md) if you're interested in the formal specification.
 
-Happy coding with fucking ShitRust!
+Happy coding with fucking Brute!

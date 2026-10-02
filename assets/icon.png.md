@@ -1,6 +1,6 @@
-# Converting ShitRust Icon from SVG to PNG
+# Converting Brute Icon from SVG to PNG
 
-To convert the ShitRust SVG icon to PNG format, you can use one of the following methods:
+To convert the Brute SVG icon to PNG format, you can use one of the following methods:
 
 ## Method 1: Using Inkscape (Recommended)
 

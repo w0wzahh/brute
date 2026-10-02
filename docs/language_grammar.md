@@ -1,6 +1,6 @@
-# ShitRust Language Grammar
+# Brute Language Grammar
 
-This document defines the formal grammar for the ShitRust programming language.
+This document defines the formal grammar for the Brute programming language.
 
 ## Lexical Grammar
 

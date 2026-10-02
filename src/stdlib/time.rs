@@ -1,572 +1,322 @@
-use crate::error::ShitRustError;
-use crate::interpreter::{Value, NativeFunctionSignature};
-use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH, Instant};
+use crate::interpreter::Value;
+use crate::error::{BruteError, Result};
 
-/// Standard library for time operations
-pub fn init_time_module() -> Vec<(String, Value)> {
-    vec![
-        // Sleep function (blocks the current thread)
-        (
-            "sleep".to_string(),
-            Value::NativeFunction {
-                name: "sleep".to_string(),
-                func: Box::new(|args| {
-                    if args.len() != 1 {
-                        return Err(ShitRustError::RuntimeError("sleep requires one argument (milliseconds)".to_string()));
-                    }
-                    
-                    let ms = match &args[0] {
-                        Value::Int(ms) => *ms as u64,
-                        Value::Float(ms) => *ms as u64,
-                        _ => return Err(ShitRustError::TypeError("Expected number of milliseconds".to_string())),
-                    };
-                    
-                    thread::sleep(Duration::from_millis(ms));
-                    Ok(Value::None)
-                }),
-                arity: 1,
-            }
-        ),
-        
-        // Get current timestamp in milliseconds
-        (
-            "now".to_string(),
-            Value::NativeFunction {
-                name: "now".to_string(),
-                func: Box::new(|_args| {
-                    let now = SystemTime::now();
-                    let duration = now.duration_since(UNIX_EPOCH)
-                        .map_err(|e| ShitRustError::RuntimeError(format!("Time error: {}", e)))?;
-                    
-                    Ok(Value::Int(duration.as_millis() as i64))
-                }),
-                arity: 0,
-            }
-        ),
-        
-        // Create a DateTime object
-        (
-            "DateTime".to_string(),
-            create_datetime_constructor(),
-        ),
-        
-        // Measure execution time of a function
-        (
-            "measure".to_string(),
-            Value::NativeFunction {
-                name: "measure".to_string(),
-                func: Box::new(|args| {
-                    if args.len() < 1 {
-                        return Err(ShitRustError::RuntimeError("measure requires a function to execute".to_string()));
-                    }
-                    
-                    let func = match &args[0] {
-                        Value::Function { .. } => args[0].clone(),
-                        Value::NativeFunction { .. } => args[0].clone(),
-                        _ => return Err(ShitRustError::TypeError("Expected a function".to_string())),
-                    };
-                    
-                    // Prepare arguments for the function
-                    let func_args = if args.len() > 1 {
-                        args[1..].to_vec()
-                    } else {
-                        Vec::new()
-                    };
-                    
-                    // Measure execution time
-                    let start = Instant::now();
-                    
-                    // Create a placeholder for the result
-                    // In a real implementation, this would call the function with args
-                    let result = Value::None;
-                    
-                    let elapsed = start.elapsed();
-                    let elapsed_ms = elapsed.as_secs() * 1000 + elapsed.subsec_millis() as u64;
-                    
-                    // Return the result and the time
-                    let mut result_obj = HashMap::new();
-                    result_obj.insert("time".to_string(), Value::Int(elapsed_ms as i64));
-                    result_obj.insert("result".to_string(), result);
-                    
-                    Ok(Value::Object(result_obj))
-                }),
-                arity: -1, // 1 or more args
-            }
-        ),
-        
-        // Create a timer for benchmarking
-        (
-            "Timer".to_string(),
-            Value::NativeFunction {
-                name: "Timer".to_string(),
-                func: Box::new(|_args| {
-                    let mut timer_obj = HashMap::new();
-                    timer_obj.insert("__type".to_string(), Value::String("Timer".to_string()));
-                    timer_obj.insert("__start".to_string(), Value::Int(0));
-                    timer_obj.insert("__running".to_string(), Value::Bool(false));
-                    
-                    // Method to start the timer
-                    timer_obj.insert("start".to_string(), Value::NativeFunction {
-                        name: "start".to_string(),
-                        func: Box::new(|args| {
-                            if args.len() != 1 {
-                                return Err(ShitRustError::RuntimeError("Timer.start requires this argument".to_string()));
-                            }
-                            
-                            let this = &args[0];
-                            if let Value::Object(this_obj) = this {
-                                let now = SystemTime::now();
-                                let duration = now.duration_since(UNIX_EPOCH)
-                                    .map_err(|e| ShitRustError::RuntimeError(format!("Time error: {}", e)))?;
-                                
-                                let mut this_clone = this_obj.clone();
-                                this_clone.insert("__start".to_string(), Value::Int(duration.as_millis() as i64));
-                                this_clone.insert("__running".to_string(), Value::Bool(true));
-                                
-                                Ok(Value::Object(this_clone))
-                            } else {
-                                Err(ShitRustError::TypeError("Expected Timer object".to_string()))
-                            }
-                        }),
-                        arity: 1, // just this
-                    });
-                    
-                    // Method to stop the timer
-                    timer_obj.insert("stop".to_string(), Value::NativeFunction {
-                        name: "stop".to_string(),
-                        func: Box::new(|args| {
-                            if args.len() != 1 {
-                                return Err(ShitRustError::RuntimeError("Timer.stop requires this argument".to_string()));
-                            }
-                            
-                            let this = &args[0];
-                            if let Value::Object(this_obj) = this {
-                                let is_running = match this_obj.get("__running") {
-                                    Some(Value::Bool(running)) => *running,
-                                    _ => false,
-                                };
-                                
-                                if !is_running {
-                                    return Err(ShitRustError::RuntimeError("Timer not running".to_string()));
-                                }
-                                
-                                let elapsed = match this_obj.get("elapsed") {
-                                    Some(Value::NativeFunction { func, .. }) => {
-                                        match func(&[Value::Object(this_obj.clone())]) {
-                                            Ok(v) => v,
-                                            Err(e) => return Err(e),
-                                        }
-                                    },
-                                    _ => return Err(ShitRustError::RuntimeError("Failed to get elapsed time".to_string())),
-                                };
-                                
-                                let mut this_clone = this_obj.clone();
-                                this_clone.insert("__running".to_string(), Value::Bool(false));
-                                
-                                Ok(elapsed)
-                            } else {
-                                Err(ShitRustError::TypeError("Expected Timer object".to_string()))
-                            }
-                        }),
-                        arity: 1, // just this
-                    });
-                    
-                    // Method to get elapsed time
-                    timer_obj.insert("elapsed".to_string(), Value::NativeFunction {
-                        name: "elapsed".to_string(),
-                        func: Box::new(|args| {
-                            if args.len() != 1 {
-                                return Err(ShitRustError::RuntimeError("Timer.elapsed requires this argument".to_string()));
-                            }
-                            
-                            let this = &args[0];
-                            if let Value::Object(this_obj) = this {
-                                let start = match this_obj.get("__start") {
-                                    Some(Value::Int(start)) => *start,
-                                    _ => return Err(ShitRustError::RuntimeError("Timer not started".to_string())),
-                                };
-                                
-                                let now = SystemTime::now();
-                                let duration = now.duration_since(UNIX_EPOCH)
-                                    .map_err(|e| ShitRustError::RuntimeError(format!("Time error: {}", e)))?;
-                                
-                                let current = duration.as_millis() as i64;
-                                Ok(Value::Int(current - start))
-                            } else {
-                                Err(ShitRustError::TypeError("Expected Timer object".to_string()))
-                            }
-                        }),
-                        arity: 1, // just this
-                    });
-                    
-                    // Method to reset the timer
-                    timer_obj.insert("reset".to_string(), Value::NativeFunction {
-                        name: "reset".to_string(),
-                        func: Box::new(|args| {
-                            if args.len() != 1 {
-                                return Err(ShitRustError::RuntimeError("Timer.reset requires this argument".to_string()));
-                            }
-                            
-                            let this = &args[0];
-                            if let Value::Object(this_obj) = this {
-                                let mut this_clone = this_obj.clone();
-                                this_clone.insert("__start".to_string(), Value::Int(0));
-                                this_clone.insert("__running".to_string(), Value::Bool(false));
-                                
-                                Ok(Value::Object(this_clone))
-                            } else {
-                                Err(ShitRustError::TypeError("Expected Timer object".to_string()))
-                            }
-                        }),
-                        arity: 1, // just this
-                    });
-                    
-                    Ok(Value::Object(timer_obj))
-                }),
-                arity: 0,
-            }
-        ),
-        
-        // Get formatted current time
-        (
-            "format_current_time".to_string(),
-            Value::NativeFunction {
-                name: "format_current_time".to_string(),
-                func: Box::new(|args| {
-                    let format = if args.len() > 0 {
-                        match &args[0] {
-                            Value::String(fmt) => fmt.clone(),
-                            _ => "%Y-%m-%d %H:%M:%S".to_string(), // Default format
-                        }
-                    } else {
-                        "%Y-%m-%d %H:%M:%S".to_string() // Default format
-                    };
-                    
-                    // In a real implementation, this would use chrono or similar
-                    // to format the current time according to the format string
-                    
-                    // For now, just return a placeholder with current timestamp
-                    let now = SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .map_err(|e| ShitRustError::RuntimeError(format!("Time error: {}", e)))?
-                        .as_secs();
-                    
-                    // Format: YYYY-MM-DD HH:MM:SS (simple implementation)
-                    let secs = now % 60;
-                    let mins = (now / 60) % 60;
-                    let hours = (now / 3600) % 24;
-                    let days = (now / 86400) % 30 + 1; // Approximate
-                    let months = (now / 2592000) % 12 + 1; // Approximate
-                    let years = 1970 + (now / 31536000); // Approximate
-                    
-                    let formatted = format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}", 
-                        years, months, days, hours, mins, secs);
-                    
-                    Ok(Value::String(formatted))
-                }),
-                arity: -1, // 0 or 1 args
-            }
-        ),
-    ]
+lazy_static::lazy_static! {
+    static ref START: Instant = Instant::now();
 }
 
-/// Creates a DateTime constructor
-fn create_datetime_constructor() -> Value {
-    Value::NativeFunction {
-        name: "DateTime".to_string(),
-        func: Box::new(|args| {
-            let timestamp = if args.len() > 0 {
-                match &args[0] {
-                    Value::Int(ts) => *ts,
-                    Value::Float(ts) => *ts as i64,
-                    _ => {
-                        // If no valid timestamp is provided, use current time
-                        SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .map_err(|e| ShitRustError::RuntimeError(format!("Time error: {}", e)))?
-                            .as_millis() as i64
-                    }
-                }
-            } else {
-                // If no args, use current time
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map_err(|e| ShitRustError::RuntimeError(format!("Time error: {}", e)))?
-                    .as_millis() as i64
-            };
-            
-            // Create DateTime object
-            let mut obj = HashMap::new();
-            obj.insert("__type".to_string(), Value::String("DateTime".to_string()));
-            obj.insert("__timestamp".to_string(), Value::Int(timestamp));
-            
-            // Method to get year
-            obj.insert("year".to_string(), Value::NativeFunction {
-                name: "year".to_string(),
-                func: Box::new(|args| {
-                    if args.len() != 1 {
-                        return Err(ShitRustError::RuntimeError("DateTime.year requires this argument".to_string()));
-                    }
-                    
-                    let this = &args[0];
-                    if let Value::Object(this_obj) = this {
-                        if let Some(Value::Int(ts)) = this_obj.get("__timestamp") {
-                            // Simple calculation - in real implementation would use chrono
-                            let seconds = ts / 1000;
-                            let year = 1970 + (seconds / 31536000);
-                            Ok(Value::Int(year))
-                        } else {
-                            Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                        }
-                    } else {
-                        Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                    }
-                }),
-                arity: 1, // just this
-            });
-            
-            // Method to get month (1-12)
-            obj.insert("month".to_string(), Value::NativeFunction {
-                name: "month".to_string(),
-                func: Box::new(|args| {
-                    if args.len() != 1 {
-                        return Err(ShitRustError::RuntimeError("DateTime.month requires this argument".to_string()));
-                    }
-                    
-                    let this = &args[0];
-                    if let Value::Object(this_obj) = this {
-                        if let Some(Value::Int(ts)) = this_obj.get("__timestamp") {
-                            // Simple calculation - in real implementation would use chrono
-                            let seconds = ts / 1000;
-                            let month = (seconds / 2592000) % 12 + 1;
-                            Ok(Value::Int(month))
-                        } else {
-                            Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                        }
-                    } else {
-                        Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                    }
-                }),
-                arity: 1, // just this
-            });
-            
-            // Method to get day (1-31)
-            obj.insert("day".to_string(), Value::NativeFunction {
-                name: "day".to_string(),
-                func: Box::new(|args| {
-                    if args.len() != 1 {
-                        return Err(ShitRustError::RuntimeError("DateTime.day requires this argument".to_string()));
-                    }
-                    
-                    let this = &args[0];
-                    if let Value::Object(this_obj) = this {
-                        if let Some(Value::Int(ts)) = this_obj.get("__timestamp") {
-                            // Simple calculation - in real implementation would use chrono
-                            let seconds = ts / 1000;
-                            let day = (seconds / 86400) % 30 + 1; // Approximate
-                            Ok(Value::Int(day))
-                        } else {
-                            Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                        }
-                    } else {
-                        Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                    }
-                }),
-                arity: 1, // just this
-            });
-            
-            // Method to get hour (0-23)
-            obj.insert("hour".to_string(), Value::NativeFunction {
-                name: "hour".to_string(),
-                func: Box::new(|args| {
-                    if args.len() != 1 {
-                        return Err(ShitRustError::RuntimeError("DateTime.hour requires this argument".to_string()));
-                    }
-                    
-                    let this = &args[0];
-                    if let Value::Object(this_obj) = this {
-                        if let Some(Value::Int(ts)) = this_obj.get("__timestamp") {
-                            let seconds = ts / 1000;
-                            let hour = (seconds / 3600) % 24;
-                            Ok(Value::Int(hour))
-                        } else {
-                            Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                        }
-                    } else {
-                        Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                    }
-                }),
-                arity: 1, // just this
-            });
-            
-            // Method to get minute (0-59)
-            obj.insert("minute".to_string(), Value::NativeFunction {
-                name: "minute".to_string(),
-                func: Box::new(|args| {
-                    if args.len() != 1 {
-                        return Err(ShitRustError::RuntimeError("DateTime.minute requires this argument".to_string()));
-                    }
-                    
-                    let this = &args[0];
-                    if let Value::Object(this_obj) = this {
-                        if let Some(Value::Int(ts)) = this_obj.get("__timestamp") {
-                            let seconds = ts / 1000;
-                            let minute = (seconds / 60) % 60;
-                            Ok(Value::Int(minute))
-                        } else {
-                            Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                        }
-                    } else {
-                        Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                    }
-                }),
-                arity: 1, // just this
-            });
-            
-            // Method to get second (0-59)
-            obj.insert("second".to_string(), Value::NativeFunction {
-                name: "second".to_string(),
-                func: Box::new(|args| {
-                    if args.len() != 1 {
-                        return Err(ShitRustError::RuntimeError("DateTime.second requires this argument".to_string()));
-                    }
-                    
-                    let this = &args[0];
-                    if let Value::Object(this_obj) = this {
-                        if let Some(Value::Int(ts)) = this_obj.get("__timestamp") {
-                            let seconds = ts / 1000;
-                            let second = seconds % 60;
-                            Ok(Value::Int(second))
-                        } else {
-                            Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                        }
-                    } else {
-                        Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                    }
-                }),
-                arity: 1, // just this
-            });
-            
-            // Method to format date to string
-            obj.insert("format".to_string(), Value::NativeFunction {
-                name: "format".to_string(),
-                func: Box::new(|args| {
-                    if args.len() < 1 || args.len() > 2 {
-                        return Err(ShitRustError::RuntimeError("DateTime.format requires this and optional format string".to_string()));
-                    }
-                    
-                    let this = &args[0];
-                    let format = if args.len() > 1 {
-                        match &args[1] {
-                            Value::String(fmt) => fmt.clone(),
-                            _ => "%Y-%m-%d %H:%M:%S".to_string(), // Default format
-                        }
-                    } else {
-                        "%Y-%m-%d %H:%M:%S".to_string() // Default format
-                    };
-                    
-                    if let Value::Object(this_obj) = this {
-                        if let Some(Value::Int(ts)) = this_obj.get("__timestamp") {
-                            let seconds = ts / 1000;
-                            
-                            // Extract components
-                            let secs = seconds % 60;
-                            let mins = (seconds / 60) % 60;
-                            let hours = (seconds / 3600) % 24;
-                            let days = (seconds / 86400) % 30 + 1; // Approximate
-                            let months = (seconds / 2592000) % 12 + 1; // Approximate
-                            let years = 1970 + (seconds / 31536000); // Approximate
-                            
-                            // In a real implementation, proper parsing of the format string would be done
-                            // For simplicity, we'll just return a fixed format
-                            let formatted = format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}", 
-                                years, months, days, hours, mins, secs);
-                            
-                            Ok(Value::String(formatted))
-                        } else {
-                            Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                        }
-                    } else {
-                        Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                    }
-                }),
-                arity: -1, // 1 or 2 args
-            });
-            
-            // Method to get timestamp
-            obj.insert("timestamp".to_string(), Value::NativeFunction {
-                name: "timestamp".to_string(),
-                func: Box::new(|args| {
-                    if args.len() != 1 {
-                        return Err(ShitRustError::RuntimeError("DateTime.timestamp requires this argument".to_string()));
-                    }
-                    
-                    let this = &args[0];
-                    if let Value::Object(this_obj) = this {
-                        if let Some(Value::Int(ts)) = this_obj.get("__timestamp") {
-                            Ok(Value::Int(*ts))
-                        } else {
-                            Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                        }
-                    } else {
-                        Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                    }
-                }),
-                arity: 1, // just this
-            });
-            
-            // Method to add time
-            obj.insert("add".to_string(), Value::NativeFunction {
-                name: "add".to_string(),
-                func: Box::new(|args| {
-                    if args.len() != 3 {
-                        return Err(ShitRustError::RuntimeError("DateTime.add requires this, amount, and unit arguments".to_string()));
-                    }
-                    
-                    let this = &args[0];
-                    let amount = match &args[1] {
-                        Value::Int(n) => *n,
-                        Value::Float(n) => *n as i64,
-                        _ => return Err(ShitRustError::TypeError("Amount must be a number".to_string())),
-                    };
-                    
-                    let unit = match &args[2] {
-                        Value::String(u) => u.as_str(),
-                        _ => return Err(ShitRustError::TypeError("Unit must be a string".to_string())),
-                    };
-                    
-                    if let Value::Object(this_obj) = this {
-                        if let Some(Value::Int(ts)) = this_obj.get("__timestamp") {
-                            let milliseconds = match unit {
-                                "milliseconds" | "ms" => amount,
-                                "seconds" | "s" => amount * 1000,
-                                "minutes" | "m" => amount * 60 * 1000,
-                                "hours" | "h" => amount * 60 * 60 * 1000,
-                                "days" | "d" => amount * 24 * 60 * 60 * 1000,
-                                _ => return Err(ShitRustError::RuntimeError(format!("Unknown time unit: {}", unit))),
-                            };
-                            
-                            let new_ts = ts + milliseconds;
-                            
-                            // Create a new DateTime with the new timestamp
-                            let mut new_obj = this_obj.clone();
-                            new_obj.insert("__timestamp".to_string(), Value::Int(new_ts));
-                            
-                            Ok(Value::Object(new_obj))
-                        } else {
-                            Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                        }
-                    } else {
-                        Err(ShitRustError::TypeError("Expected DateTime object".to_string()))
-                    }
-                }),
-                arity: 3, // this, amount, unit
-            });
-            
-            Ok(Value::Object(obj))
-        }),
-        arity: -1, // 0 or 1 args
+fn epoch_millis() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
+/// Howard Hinnant's civil-from-days algorithm.
+fn civil_from_days(z: i64) -> (i64, i64, i64) {
+    let z = z + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    (if m <= 2 { y + 1 } else { y }, m, d)
+}
+
+fn datetime_fields(ms: i64) -> (i64, i64, i64, i64, i64, i64, i64) {
+    let days = ms.div_euclid(86_400_000);
+    let rem  = ms.rem_euclid(86_400_000);
+    let (y, m, d) = civil_from_days(days);
+    let hour   = rem / 3_600_000;
+    let minute = rem % 3_600_000 / 60_000;
+    let second = rem % 60_000 / 1_000;
+    // 1970-01-01 was a Thursday (4)
+    let dow = (days + 4).rem_euclid(7);
+    (y, m, d, hour, minute, second, dow)
+}
+
+fn millis_of(args: &[Value]) -> Result<i64> {
+    match args.get(0) {
+        Some(Value::Object { fields, .. }) => match fields.get("millis") {
+            Some(Value::Int(ms)) => Ok(*ms),
+            _ => Err(BruteError::RuntimeError("DateTime missing millis".into())),
+        },
+        _ => Err(BruteError::RuntimeError("method called on non-DateTime".into())),
     }
-} 
+}
+
+fn datetime_obj(ms: i64) -> Value {
+    let mut fields = HashMap::new();
+    fields.insert("millis".into(), Value::Int(ms));
+
+    macro_rules! dt_method {
+        ($name:expr, $body:expr) => {
+            fields.insert($name.into(), Value::NativeFunction {
+                name: concat!("DateTime::", $name).into(),
+                func: $body,
+            });
+        };
+    }
+
+    dt_method!("year",   |_, a| Ok(Value::Int(datetime_fields(millis_of(&a)?).0)));
+    dt_method!("month",  |_, a| Ok(Value::Int(datetime_fields(millis_of(&a)?).1)));
+    dt_method!("day",    |_, a| Ok(Value::Int(datetime_fields(millis_of(&a)?).2)));
+    dt_method!("hour",   |_, a| Ok(Value::Int(datetime_fields(millis_of(&a)?).3)));
+    dt_method!("minute", |_, a| Ok(Value::Int(datetime_fields(millis_of(&a)?).4)));
+    dt_method!("second", |_, a| Ok(Value::Int(datetime_fields(millis_of(&a)?).5)));
+    dt_method!("day_of_week", |_, a| Ok(Value::Int(datetime_fields(millis_of(&a)?).6)));
+    dt_method!("timestamp",   |_, a| Ok(Value::Int(millis_of(&a)?)));
+
+    dt_method!("format", |_, a| {
+        let (y, mo, d, h, mi, s, _) = datetime_fields(millis_of(&a)?);
+        Ok(Value::String(format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}", y, mo, d, h, mi, s)))
+    });
+    dt_method!("format_date", |_, a| {
+        let (y, mo, d, ..) = datetime_fields(millis_of(&a)?);
+        Ok(Value::String(format!("{:04}-{:02}-{:02}", y, mo, d)))
+    });
+    dt_method!("format_time", |_, a| {
+        let (_, _, _, h, mi, s, _) = datetime_fields(millis_of(&a)?);
+        Ok(Value::String(format!("{:02}:{:02}:{:02}", h, mi, s)))
+    });
+    dt_method!("to_string", |_, a| {
+        let (y, mo, d, h, mi, s, _) = datetime_fields(millis_of(&a)?);
+        Ok(Value::String(format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}", y, mo, d, h, mi, s)))
+    });
+
+    // `dt.add(n, "days"|"hours"|"minutes"|"seconds"|"millis"|"weeks")`
+    dt_method!("add", |_, a| {
+        let ms = millis_of(&a)?;
+        let n = match a.get(1) {
+            Some(Value::Int(n))   => *n,
+            Some(Value::Float(n)) => *n as i64,
+            _ => 0,
+        };
+        let unit = a.get(2).map(|v| v.display()).unwrap_or_else(|| "millis".into());
+        let mult: i64 = match unit.as_str() {
+            "ms" | "millis" | "milliseconds"       => 1,
+            "s" | "sec" | "secs" | "seconds"       => 1_000,
+            "m" | "min" | "mins" | "minutes"       => 60_000,
+            "h" | "hr" | "hrs" | "hours"           => 3_600_000,
+            "d" | "day" | "days"                   => 86_400_000,
+            "w" | "week" | "weeks"                 => 604_800_000,
+            other => return Err(BruteError::ValueError(
+                format!("unknown time unit '{}'", other))),
+        };
+        Ok(datetime_obj(ms.saturating_add(n.saturating_mul(mult))))
+    });
+    dt_method!("sub", |_, a| {
+        let ms = millis_of(&a)?;
+        let n = match a.get(1) {
+            Some(Value::Int(n))   => *n,
+            Some(Value::Float(n)) => *n as i64,
+            _ => 0,
+        };
+        Ok(datetime_obj(ms.saturating_sub(n)))
+    });
+    // `dt.diff(other)` — milliseconds between two DateTimes
+    dt_method!("diff", |_, a| {
+        let ms = millis_of(&a)?;
+        let other = millis_of(&a[1..]).unwrap_or(0);
+        Ok(Value::Int(ms - other))
+    });
+    dt_method!("is_before", |_, a| {
+        let ms = millis_of(&a)?;
+        Ok(Value::Bool(ms < millis_of(&a[1..]).unwrap_or(i64::MAX)))
+    });
+    dt_method!("is_after", |_, a| {
+        let ms = millis_of(&a)?;
+        Ok(Value::Bool(ms > millis_of(&a[1..]).unwrap_or(i64::MIN)))
+    });
+
+    Value::Object { type_name: "DateTime".into(), fields }
+}
+
+fn timer_obj() -> Value {
+    let start = epoch_millis();
+    let mut fields = HashMap::new();
+    fields.insert("start_ms".into(), Value::Int(start));
+    fields.insert("elapsed".into(), Value::NativeFunction {
+        name: "Timer::elapsed".into(),
+        func: |_, a| {
+            match a.get(0) {
+                Some(Value::Object { fields, .. }) => match fields.get("start_ms") {
+                    Some(Value::Int(s)) => Ok(Value::Int(epoch_millis() - s)),
+                    _ => Err(BruteError::RuntimeError("Timer missing start".into())),
+                },
+                _ => Err(BruteError::RuntimeError("method called on non-Timer".into())),
+            }
+        },
+    });
+    // `timer.start()` — (re)start the timer. Values are immutable, so this
+    // returns a fresh timer; the idiom `timer.start()` simply re-marks now.
+    fields.insert("start".into(), Value::NativeFunction {
+        name: "Timer::start".into(),
+        func: |_, _| Ok(timer_obj()),
+    });
+    fields.insert("reset".into(), Value::NativeFunction {
+        name: "Timer::reset".into(),
+        func: |_, _| Ok(timer_obj()),
+    });
+    // `timer.stop()` — stop and report elapsed ms (timers are monotonic here).
+    fields.insert("stop".into(), Value::NativeFunction {
+        name: "Timer::stop".into(),
+        func: |_, a| {
+            match a.get(0) {
+                Some(Value::Object { fields, .. }) => match fields.get("start_ms") {
+                    Some(Value::Int(s)) => Ok(Value::Int(epoch_millis() - s)),
+                    _ => Err(BruteError::RuntimeError("Timer missing start".into())),
+                },
+                _ => Err(BruteError::RuntimeError("method called on non-Timer".into())),
+            }
+        },
+    });
+    fields.insert("to_string".into(), Value::NativeFunction {
+        name: "Timer::to_string".into(),
+        func: |_, a| {
+            match a.get(0) {
+                Some(Value::Object { fields, .. }) => match fields.get("start_ms") {
+                    Some(Value::Int(s)) => Ok(Value::String(format!("{} ms elapsed", epoch_millis() - s))),
+                    _ => Err(BruteError::RuntimeError("Timer missing start".into())),
+                },
+                _ => Err(BruteError::RuntimeError("method called on non-Timer".into())),
+            }
+        },
+    });
+    Value::Object { type_name: "Timer".into(), fields }
+}
+
+fn duration_obj(ms: i64) -> Value {
+    let mut fields = HashMap::new();
+    fields.insert("millis".into(), Value::Int(ms));
+    fields.insert("to_millis".into(), Value::NativeFunction {
+        name: "Duration::to_millis".into(),
+        func: |_, a| millis_of(&a).map(Value::Int),
+    });
+    fields.insert("to_secs".into(), Value::NativeFunction {
+        name: "Duration::to_secs".into(),
+        func: |_, a| millis_of(&a).map(|ms| Value::Int(ms / 1000)),
+    });
+    fields.insert("to_string".into(), Value::NativeFunction {
+        name: "Duration::to_string".into(),
+        func: |_, a| millis_of(&a).map(|ms| Value::String(format!("{}ms", ms))),
+    });
+    Value::Object { type_name: "Duration".into(), fields }
+}
+
+/// Returns a map of name → Value for the time module.
+pub fn module() -> HashMap<String, Value> {
+    let mut m: HashMap<String, Value> = HashMap::new();
+
+    macro_rules! f {
+        ($name:expr, $body:expr) => {
+            m.insert($name.into(), Value::NativeFunction {
+                name: concat!("time::", $name).into(),
+                func: $body,
+            });
+        };
+    }
+
+    f!("now", |_, _| Ok(Value::Int(epoch_millis())));
+    f!("now_secs", |_, _| Ok(Value::Float(
+        SystemTime::now().duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs_f64()).unwrap_or(0.0)
+    )));
+    f!("monotonic", |_, _| Ok(Value::Int(START.elapsed().as_millis() as i64)));
+    f!("sleep", |_, a| {
+        let ms = match a.get(0) {
+            Some(Value::Int(ms))   => *ms,
+            Some(Value::Float(ms)) => *ms as i64,
+            _ => 0,
+        };
+        std::thread::sleep(std::time::Duration::from_millis(ms.max(0) as u64));
+        Ok(Value::None)
+    });
+    f!("DateTime", |_, a| {
+        match a.get(0) {
+            Some(Value::Int(ms)) => Ok(datetime_obj(*ms)),
+            _ => Ok(datetime_obj(epoch_millis())),
+        }
+    });
+    f!("from_millis", |_, a| {
+        match a.get(0) {
+            Some(Value::Int(ms)) => Ok(datetime_obj(*ms)),
+            _ => Ok(datetime_obj(epoch_millis())),
+        }
+    });
+    // `Timer` is a namespace dict — `time.Timer()` and `time.Timer::create()`
+    // both construct a timer (dicts are callable via `new`/`create`).
+    let mut timer_ns = HashMap::new();
+    timer_ns.insert("create".into(), Value::NativeFunction {
+        name: "Timer::create".into(),
+        func: |_, _| Ok(timer_obj()),
+    });
+    timer_ns.insert("new".into(), Value::NativeFunction {
+        name: "Timer::new".into(),
+        func: |_, _| Ok(timer_obj()),
+    });
+    m.insert("Timer".into(), Value::Dict(timer_ns));
+
+    // `Duration` — `Duration::seconds(n)` / `millis(n)` / `minutes(n)` …
+    fn dur_arg(a: &[Value]) -> i64 {
+        match a.get(0) {
+            Some(Value::Int(n))   => *n,
+            Some(Value::Float(n)) => *n as i64,
+            _ => 0,
+        }
+    }
+    let mut dur_ns = HashMap::new();
+    dur_ns.insert("millis".into(), Value::NativeFunction {
+        name: "Duration::millis".into(), func: |_, a| Ok(duration_obj(dur_arg(&a))) });
+    dur_ns.insert("from_millis".into(), Value::NativeFunction {
+        name: "Duration::from_millis".into(), func: |_, a| Ok(duration_obj(dur_arg(&a))) });
+    dur_ns.insert("seconds".into(), Value::NativeFunction {
+        name: "Duration::seconds".into(), func: |_, a| Ok(duration_obj(dur_arg(&a).saturating_mul(1_000))) });
+    dur_ns.insert("minutes".into(), Value::NativeFunction {
+        name: "Duration::minutes".into(), func: |_, a| Ok(duration_obj(dur_arg(&a).saturating_mul(60_000))) });
+    dur_ns.insert("hours".into(), Value::NativeFunction {
+        name: "Duration::hours".into(), func: |_, a| Ok(duration_obj(dur_arg(&a).saturating_mul(3_600_000))) });
+    m.insert("Duration".into(), Value::Dict(dur_ns));
+
+    f!("format_ms", |_, a| {
+        let ms = match a.get(0) { Some(Value::Int(i)) => *i, _ => 0 };
+        if ms < 1000 { Ok(Value::String(format!("{}ms", ms))) }
+        else if ms < 60_000 { Ok(Value::String(format!("{:.2}s", ms as f64 / 1000.0))) }
+        else { Ok(Value::String(format!("{:.2}m", ms as f64 / 60_000.0))) }
+    });
+
+    // `format_current_time(fmt?)` — strftime-style %Y %m %d %H %M %S
+    f!("format_current_time", |_, a| {
+        let (y, mo, d, h, mi, s, _) = datetime_fields(epoch_millis());
+        let fmt_str = a.get(0).map(|v| v.display())
+            .unwrap_or_else(|| "%Y-%m-%d %H:%M:%S".into());
+        let out = fmt_str
+            .replace("%Y", &format!("{:04}", y))
+            .replace("%m", &format!("{:02}", mo))
+            .replace("%d", &format!("{:02}", d))
+            .replace("%H", &format!("{:02}", h))
+            .replace("%M", &format!("{:02}", mi))
+            .replace("%S", &format!("{:02}", s));
+        Ok(Value::String(out))
+    });
+
+    // `measure(f, args...)` — run `f`, return `{ time: ms, result: value }`
+    f!("measure", |i, a| {
+        let f = a.get(0).cloned()
+            .ok_or_else(|| BruteError::ArgumentError("measure() needs a function".into()))?;
+        let call_args: Vec<Value> = a.iter().skip(1).cloned().collect();
+        let t0 = epoch_millis();
+        let result = i.call_value(f, call_args)?;
+        let mut m: HashMap<String, Value> = HashMap::new();
+        m.insert("time".into(),   Value::Int(epoch_millis() - t0));
+        m.insert("result".into(), result);
+        Ok(Value::Dict(m))
+    });
+
+    m
+}

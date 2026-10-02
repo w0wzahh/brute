@@ -1,298 +1,297 @@
 use std::fmt;
-use crate::error::{ShitRustError, Result, SourceLocation};
+use crate::error::{BruteError, Result, SourceLocation};
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Token types
+// ─────────────────────────────────────────────────────────────────────────────
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
-    // Identifiers & literals
+    // Literals
     Identifier,
     IntLiteral,
     FloatLiteral,
     StringLiteral,
     CharLiteral,
-    BoolLiteral,
-
     // Keywords
-    Let,
-    Mut,
-    Fn,
-    If,
-    Else,
-    While,
-    For,
-    In,
-    Match,
-    Return,
-    Break,
-    Continue,
-    Struct,
-    Enum,
-    Import,
-    From,
-    As,
-    Pub,
-    True,
-    False,
-    None,
-    // New keywords
-    Async,
-    Await,
-    Try,
-    Catch,
-    Finally,
-    Static,
-    Type,
-    Trait,
-    Impl,
-    Self_,
-    This,
-    Result,
-    Ok,
-    Err,
-    Use,
-    Const,
-    Loop,
-
-    // Types
-    Int,
-    Float,
-    Bool,
-    String,
-    Char,
-    Void,
-
-    // Operators
-    Plus,
-    Minus,
-    Star,
-    Slash,
-    Percent,
-    Equal,
-    EqualEqual,
-    NotEqual,
-    Greater,
-    GreaterEqual,
-    Less,
-    LessEqual,
-    And,
-    Or,
-    Not,
-    PlusEqual,
-    MinusEqual,
-    StarEqual,
-    SlashEqual,
-    PercentEqual,
-
+    Let, Mut, Fn, If, Else, While, For, In, Match, Return,
+    Break, Continue, Struct, Enum, Import, From, As, Pub,
+    True, False, None, Async, Await, Try, Catch, Finally,
+    Static, Type, Trait, Impl, Self_, This, Use, Const,
+    Loop, Where, Mod, Extern, Unsafe, Ref, Box_, Is,
+    // Built-in types
+    Int, Float, Bool, String_, Char_, Void,
+    // Arithmetic
+    Plus, Minus, Star, Slash, Percent, StarStar,
+    // Comparison
+    EqualEqual, NotEqual, Greater, GreaterEqual, Less, LessEqual,
+    // Assignment
+    Equal, PlusEqual, MinusEqual, StarEqual, SlashEqual,
+    PercentEqual, AndEqual, OrEqual, XorEqual,
+    StarStarEqual, SlashSlashEqual,
+    // Logical
+    And, Or, Not,
+    // Bitwise
+    Ampersand, Pipe, Caret, Tilde, LeftShift, RightShift,
+    // Special operators
+    Arrow, FatArrow, DotDot, DotDotEqual, QuestionQuestion,
+    Pipeline, At, Question, Colon, DoubleColon,
     // Delimiters
-    LeftParen,
-    RightParen,
-    LeftBrace,
-    RightBrace,
-    LeftBracket,
-    RightBracket,
-    Comma,
-    Dot,
-    Colon,
-    Semicolon,
-    Arrow,
-    FatArrow,
-    
-    // Special
+    LeftParen, RightParen, LeftBrace, RightBrace,
+    LeftBracket, RightBracket, Comma, Dot, Semicolon, Hash,
+    // End of file
     EOF,
 }
 
 impl fmt::Display for TokenType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            TokenType::Identifier => write!(f, "identifier"),
-            TokenType::IntLiteral => write!(f, "integer literal"),
-            TokenType::FloatLiteral => write!(f, "float literal"),
-            TokenType::StringLiteral => write!(f, "string literal"),
-            TokenType::CharLiteral => write!(f, "character literal"),
-            TokenType::BoolLiteral => write!(f, "boolean literal"),
-            // Keywords
-            TokenType::Let => write!(f, "let"),
-            TokenType::Mut => write!(f, "mut"),
-            TokenType::Fn => write!(f, "fn"),
-            TokenType::If => write!(f, "if"),
-            TokenType::Else => write!(f, "else"),
-            TokenType::While => write!(f, "while"),
-            TokenType::For => write!(f, "for"),
-            TokenType::In => write!(f, "in"),
-            TokenType::Match => write!(f, "match"),
-            TokenType::Return => write!(f, "return"),
-            TokenType::Break => write!(f, "break"),
-            TokenType::Continue => write!(f, "continue"),
-            TokenType::Struct => write!(f, "struct"),
-            TokenType::Enum => write!(f, "enum"),
-            TokenType::Import => write!(f, "import"),
-            TokenType::From => write!(f, "from"),
-            TokenType::As => write!(f, "as"),
-            TokenType::Pub => write!(f, "pub"),
-            TokenType::True => write!(f, "true"),
-            TokenType::False => write!(f, "false"),
-            TokenType::None => write!(f, "none"),
-            // New keywords
-            TokenType::Async => write!(f, "async"),
-            TokenType::Await => write!(f, "await"),
-            TokenType::Try => write!(f, "try"),
-            TokenType::Catch => write!(f, "catch"),
-            TokenType::Finally => write!(f, "finally"),
-            TokenType::Static => write!(f, "static"),
-            TokenType::Type => write!(f, "type"),
-            TokenType::Trait => write!(f, "trait"),
-            TokenType::Impl => write!(f, "impl"),
-            TokenType::Self_ => write!(f, "self"),
-            TokenType::This => write!(f, "this"),
-            TokenType::Result => write!(f, "result"),
-            TokenType::Ok => write!(f, "ok"),
-            TokenType::Err => write!(f, "err"),
-            TokenType::Use => write!(f, "use"),
-            TokenType::Const => write!(f, "const"),
-            TokenType::Loop => write!(f, "loop"),
-            // Types
-            TokenType::Int => write!(f, "int"),
-            TokenType::Float => write!(f, "float"),
-            TokenType::Bool => write!(f, "bool"),
-            TokenType::String => write!(f, "string"),
-            TokenType::Char => write!(f, "char"),
-            TokenType::Void => write!(f, "void"),
-            // Operators and other symbols
-            TokenType::Plus => write!(f, "+"),
-            TokenType::Minus => write!(f, "-"),
-            TokenType::Star => write!(f, "*"),
-            TokenType::Slash => write!(f, "/"),
-            TokenType::Percent => write!(f, "%"),
-            TokenType::Equal => write!(f, "="),
-            TokenType::EqualEqual => write!(f, "=="),
-            TokenType::NotEqual => write!(f, "!="),
-            TokenType::Greater => write!(f, ">"),
-            TokenType::GreaterEqual => write!(f, ">="),
-            TokenType::Less => write!(f, "<"),
-            TokenType::LessEqual => write!(f, "<="),
-            TokenType::And => write!(f, "&&"),
-            TokenType::Or => write!(f, "||"),
-            TokenType::Not => write!(f, "!"),
-            TokenType::PlusEqual => write!(f, "+="),
-            TokenType::MinusEqual => write!(f, "-="),
-            TokenType::StarEqual => write!(f, "*="),
-            TokenType::SlashEqual => write!(f, "/="),
-            TokenType::PercentEqual => write!(f, "%="),
-            TokenType::LeftParen => write!(f, "("),
-            TokenType::RightParen => write!(f, ")"),
-            TokenType::LeftBrace => write!(f, "{{"),
-            TokenType::RightBrace => write!(f, "}}"),
-            TokenType::LeftBracket => write!(f, "["),
-            TokenType::RightBracket => write!(f, "]"),
-            TokenType::Comma => write!(f, ","),
-            TokenType::Dot => write!(f, "."),
-            TokenType::Colon => write!(f, ":"),
-            TokenType::Semicolon => write!(f, ";"),
-            TokenType::Arrow => write!(f, "->"),
-            TokenType::FatArrow => write!(f, "=>"),
-            TokenType::EOF => write!(f, "end of file"),
-        }
+        let s = match self {
+            TokenType::Identifier      => "identifier",
+            TokenType::IntLiteral      => "integer",
+            TokenType::FloatLiteral    => "float",
+            TokenType::StringLiteral   => "string",
+            TokenType::CharLiteral     => "char",
+            TokenType::Let             => "let",
+            TokenType::Mut             => "mut",
+            TokenType::Fn              => "fn",
+            TokenType::If              => "if",
+            TokenType::Else            => "else",
+            TokenType::While           => "while",
+            TokenType::For             => "for",
+            TokenType::In              => "in",
+            TokenType::Match           => "match",
+            TokenType::Return          => "return",
+            TokenType::Break           => "break",
+            TokenType::Continue        => "continue",
+            TokenType::Struct          => "struct",
+            TokenType::Enum            => "enum",
+            TokenType::Import          => "import",
+            TokenType::From            => "from",
+            TokenType::As              => "as",
+            TokenType::Pub             => "pub",
+            TokenType::True            => "true",
+            TokenType::False           => "false",
+            TokenType::None            => "none",
+            TokenType::Async           => "async",
+            TokenType::Await           => "await",
+            TokenType::Try             => "try",
+            TokenType::Catch           => "catch",
+            TokenType::Finally         => "finally",
+            TokenType::Static          => "static",
+            TokenType::Type            => "type",
+            TokenType::Trait           => "trait",
+            TokenType::Impl            => "impl",
+            TokenType::Self_           => "self",
+            TokenType::This            => "this",
+            TokenType::Use             => "use",
+            TokenType::Const           => "const",
+            TokenType::Loop            => "loop",
+            TokenType::Where           => "where",
+            TokenType::Mod             => "mod",
+            TokenType::Extern          => "extern",
+            TokenType::Unsafe          => "unsafe",
+            TokenType::Ref             => "ref",
+            TokenType::Box_            => "box",
+            TokenType::Is              => "is",
+            TokenType::Int             => "int",
+            TokenType::Float           => "float",
+            TokenType::Bool            => "bool",
+            TokenType::String_         => "string",
+            TokenType::Char_           => "char",
+            TokenType::Void            => "void",
+            TokenType::Plus            => "+",
+            TokenType::Minus           => "-",
+            TokenType::Star            => "*",
+            TokenType::Slash           => "/",
+            TokenType::Percent         => "%",
+            TokenType::StarStar        => "**",
+            TokenType::EqualEqual      => "==",
+            TokenType::NotEqual        => "!=",
+            TokenType::Greater         => ">",
+            TokenType::GreaterEqual    => ">=",
+            TokenType::Less            => "<",
+            TokenType::LessEqual       => "<=",
+            TokenType::Equal           => "=",
+            TokenType::PlusEqual       => "+=",
+            TokenType::MinusEqual      => "-=",
+            TokenType::StarEqual       => "*=",
+            TokenType::SlashEqual      => "/=",
+            TokenType::PercentEqual    => "%=",
+            TokenType::AndEqual        => "&=",
+            TokenType::OrEqual         => "|=",
+            TokenType::XorEqual        => "^=",
+            TokenType::StarStarEqual   => "**=",
+            TokenType::SlashSlashEqual => "//=",
+            TokenType::And             => "&&",
+            TokenType::Or              => "||",
+            TokenType::Not             => "!",
+            TokenType::Ampersand       => "&",
+            TokenType::Pipe            => "|",
+            TokenType::Caret           => "^",
+            TokenType::Tilde           => "~",
+            TokenType::LeftShift       => "<<",
+            TokenType::RightShift      => ">>",
+            TokenType::Arrow           => "->",
+            TokenType::FatArrow        => "=>",
+            TokenType::DotDot          => "..",
+            TokenType::DotDotEqual     => "..=",
+            TokenType::QuestionQuestion => "??",
+            TokenType::Pipeline        => "|>",
+            TokenType::At              => "@",
+            TokenType::Question        => "?",
+            TokenType::Colon           => ":",
+            TokenType::DoubleColon     => "::",
+            TokenType::LeftParen       => "(",
+            TokenType::RightParen      => ")",
+            TokenType::LeftBrace       => "{",
+            TokenType::RightBrace      => "}",
+            TokenType::LeftBracket     => "[",
+            TokenType::RightBracket    => "]",
+            TokenType::Comma           => ",",
+            TokenType::Dot             => ".",
+            TokenType::Semicolon       => ";",
+            TokenType::Hash            => "#",
+            TokenType::EOF             => "<EOF>",
+        };
+        write!(f, "{}", s)
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Token
+// ─────────────────────────────────────────────────────────────────────────────
 #[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
-    pub lexeme: String,
-    pub line: usize,
-    pub column: usize,
+    pub lexeme:     String,
+    pub line:       usize,
+    pub column:     usize,
 }
 
 impl Token {
     pub fn new(token_type: TokenType, lexeme: String, line: usize, column: usize) -> Self {
-        Token {
-            token_type,
-            lexeme,
-            line,
-            column,
-        }
+        Token { token_type, lexeme, line, column }
     }
-    
-    /// Get the source location of this token
+
     pub fn location(&self) -> SourceLocation {
         SourceLocation::new(self.line, self.column)
     }
 }
 
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "'{}'", self.lexeme)
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lexer
+// ─────────────────────────────────────────────────────────────────────────────
 pub struct Lexer {
-    source: String,
-    tokens: Vec<Token>,
-    start: usize,
-    current: usize,
-    line: usize,
-    column: usize,
+    /// Source stored as a Vec<char> so every index operation is O(1) and
+    /// works correctly with multi-byte Unicode characters.
+    source:   Vec<char>,
+    tokens:   Vec<Token>,
+    start:    usize,
+    current:  usize,
+    line:     usize,
+    column:   usize,
     filename: Option<String>,
 }
 
 impl Lexer {
     pub fn new(source: &str) -> Self {
         Lexer {
-            source: source.to_string(),
-            tokens: Vec::new(),
-            start: 0,
-            current: 0,
-            line: 1,
-            column: 1,
+            source:   source.chars().collect(),
+            tokens:   Vec::new(),
+            start:    0,
+            current:  0,
+            line:     1,
+            column:   1,
             filename: None,
         }
     }
-    
-    /// Create a new lexer with a filename for better error reporting
+
     pub fn with_filename(source: &str, filename: String) -> Self {
-        Lexer {
-            source: source.to_string(),
-            tokens: Vec::new(),
-            start: 0,
-            current: 0,
-            line: 1,
-            column: 1,
-            filename: Some(filename),
-        }
+        let mut l = Lexer::new(source);
+        l.filename = Some(filename);
+        l
     }
-    
-    /// Return a source location at the current position
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
     fn current_location(&self) -> SourceLocation {
-        if let Some(filename) = &self.filename {
-            SourceLocation::with_file(self.line, self.column, filename.clone())
-        } else {
-            SourceLocation::new(self.line, self.column)
+        match &self.filename {
+            Some(f) => SourceLocation::with_file(self.line, self.column, f.clone()),
+            None    => SourceLocation::new(self.line, self.column),
         }
     }
-    
-    /// Generate a syntax error at the current location
-    fn error(&self, message: &str) -> ShitRustError {
-        ShitRustError::SyntaxError {
+
+    fn error(&self, msg: impl Into<String>) -> BruteError {
+        BruteError::SyntaxError {
             location: self.current_location(),
-            message: message.to_string(),
+            message:  msg.into(),
         }
     }
+
+    fn is_at_end(&self) -> bool {
+        self.current >= self.source.len()
+    }
+
+    fn peek(&self) -> char {
+        if self.is_at_end() { '\0' } else { self.source[self.current] }
+    }
+
+    fn peek_next(&self) -> char {
+        if self.current + 1 >= self.source.len() { '\0' }
+        else { self.source[self.current + 1] }
+    }
+
+    fn advance(&mut self) -> char {
+        let c = self.source[self.current];
+        self.current += 1;
+        self.column  += 1;
+        c
+    }
+
+    fn match_char(&mut self, expected: char) -> bool {
+        if self.is_at_end() || self.source[self.current] != expected {
+            return false;
+        }
+        self.current += 1;
+        self.column  += 1;
+        true
+    }
+
+    fn add_token(&mut self, tt: TokenType) {
+        let lexeme: String = self.source[self.start..self.current].iter().collect();
+        let col = self.column.saturating_sub(self.current - self.start);
+        self.tokens.push(Token::new(tt, lexeme, self.line, col));
+    }
+
+    fn add_token_with_lexeme(&mut self, tt: TokenType, lexeme: String) {
+        let col = self.column.saturating_sub(self.current - self.start);
+        self.tokens.push(Token::new(tt, lexeme, self.line, col));
+    }
+
+    // ── public entry point ────────────────────────────────────────────────────
 
     pub fn scan_tokens(&mut self) -> Result<Vec<Token>> {
         while !self.is_at_end() {
             self.start = self.current;
             self.scan_token()?;
         }
-
-        // Add EOF token
-        let eof_column = self.column;
         self.tokens.push(Token::new(
-            TokenType::EOF,
-            String::new(),
-            self.line,
-            eof_column,
+            TokenType::EOF, String::new(), self.line, self.column,
         ));
-
         Ok(self.tokens.clone())
     }
+
+    // ── main dispatch ─────────────────────────────────────────────────────────
 
     fn scan_token(&mut self) -> Result<()> {
         let c = self.advance();
         match c {
-            // Single character tokens
+            // Single-character tokens
             '(' => self.add_token(TokenType::LeftParen),
             ')' => self.add_token(TokenType::RightParen),
             '{' => self.add_token(TokenType::LeftBrace),
@@ -300,362 +299,355 @@ impl Lexer {
             '[' => self.add_token(TokenType::LeftBracket),
             ']' => self.add_token(TokenType::RightBracket),
             ',' => self.add_token(TokenType::Comma),
-            '.' => self.add_token(TokenType::Dot),
-            ':' => self.add_token(TokenType::Colon),
             ';' => self.add_token(TokenType::Semicolon),
-            
-            // Single or double character tokens
+            '~' => self.add_token(TokenType::Tilde),
+            '@' => self.add_token(TokenType::At),
+            '#' => self.add_token(TokenType::Hash),
+            // Dot / range
+            '.' => {
+                if self.match_char('.') {
+                    if self.match_char('=') { self.add_token(TokenType::DotDotEqual); }
+                    else                    { self.add_token(TokenType::DotDot); }
+                } else {
+                    self.add_token(TokenType::Dot);
+                }
+            }
+            // Colon / double-colon
+            ':' => {
+                if self.match_char(':') { self.add_token(TokenType::DoubleColon); }
+                else                   { self.add_token(TokenType::Colon); }
+            }
+            // Arithmetic
             '+' => {
-                if self.match_char('=') {
-                    self.add_token(TokenType::PlusEqual)
-                } else {
-                    self.add_token(TokenType::Plus)
-                }
-            },
+                if self.match_char('=') { self.add_token(TokenType::PlusEqual); }
+                else                   { self.add_token(TokenType::Plus); }
+            }
             '-' => {
-                if self.match_char('>') {
-                    self.add_token(TokenType::Arrow)
-                } else if self.match_char('=') {
-                    self.add_token(TokenType::MinusEqual)
-                } else {
-                    self.add_token(TokenType::Minus)
-                }
-            },
+                if      self.match_char('>') { self.add_token(TokenType::Arrow); }
+                else if self.match_char('=') { self.add_token(TokenType::MinusEqual); }
+                else                        { self.add_token(TokenType::Minus); }
+            }
             '*' => {
-                if self.match_char('=') {
-                    self.add_token(TokenType::StarEqual)
+                if self.match_char('*') {
+                    if self.match_char('=') { self.add_token(TokenType::StarStarEqual); }
+                    else                   { self.add_token(TokenType::StarStar); }
+                } else if self.match_char('=') {
+                    self.add_token(TokenType::StarEqual);
                 } else {
-                    self.add_token(TokenType::Star)
+                    self.add_token(TokenType::Star);
                 }
-            },
+            }
+            '%' => {
+                if self.match_char('=') { self.add_token(TokenType::PercentEqual); }
+                else                   { self.add_token(TokenType::Percent); }
+            }
+            // Slash / comments
             '/' => {
                 if self.match_char('/') {
-                    // Comment until the end of the line
-                    while self.peek() != '\n' && !self.is_at_end() {
-                        self.advance();
+                    if self.match_char('=') {
+                        self.add_token(TokenType::SlashSlashEqual);
+                    } else {
+                        // Line comment — consume until newline
+                        while self.peek() != '\n' && !self.is_at_end() { self.advance(); }
                     }
                 } else if self.match_char('*') {
-                    // Block comment
                     self.block_comment()?;
                 } else if self.match_char('=') {
-                    self.add_token(TokenType::SlashEqual)
+                    self.add_token(TokenType::SlashEqual);
                 } else {
-                    self.add_token(TokenType::Slash)
+                    self.add_token(TokenType::Slash);
                 }
-            },
-            '%' => {
-                if self.match_char('=') {
-                    self.add_token(TokenType::PercentEqual)
-                } else {
-                    self.add_token(TokenType::Percent)
-                }
-            },
+            }
+            // Logical / bitwise
             '!' => {
-                if self.match_char('=') {
-                    self.add_token(TokenType::NotEqual)
-                } else {
-                    self.add_token(TokenType::Not)
-                }
-            },
+                if self.match_char('=') { self.add_token(TokenType::NotEqual); }
+                else                   { self.add_token(TokenType::Not); }
+            }
             '=' => {
-                if self.match_char('=') {
-                    self.add_token(TokenType::EqualEqual)
-                } else if self.match_char('>') {
-                    self.add_token(TokenType::FatArrow)
-                } else {
-                    self.add_token(TokenType::Equal)
-                }
-            },
+                if      self.match_char('=') { self.add_token(TokenType::EqualEqual); }
+                else if self.match_char('>') { self.add_token(TokenType::FatArrow); }
+                else                        { self.add_token(TokenType::Equal); }
+            }
             '<' => {
-                if self.match_char('=') {
-                    self.add_token(TokenType::LessEqual)
-                } else {
-                    self.add_token(TokenType::Less)
-                }
-            },
+                if      self.match_char('<') { self.add_token(TokenType::LeftShift); }
+                else if self.match_char('=') { self.add_token(TokenType::LessEqual); }
+                else                        { self.add_token(TokenType::Less); }
+            }
             '>' => {
-                if self.match_char('=') {
-                    self.add_token(TokenType::GreaterEqual)
-                } else {
-                    self.add_token(TokenType::Greater)
-                }
-            },
+                if      self.match_char('>') { self.add_token(TokenType::RightShift); }
+                else if self.match_char('=') { self.add_token(TokenType::GreaterEqual); }
+                else                        { self.add_token(TokenType::Greater); }
+            }
             '&' => {
-                if self.match_char('&') {
-                    self.add_token(TokenType::And)
-                } else {
-                    return Err(self.error("Expected '&' after '&'"));
-                }
-            },
+                if      self.match_char('&') { self.add_token(TokenType::And); }
+                else if self.match_char('=') { self.add_token(TokenType::AndEqual); }
+                else                        { self.add_token(TokenType::Ampersand); }
+            }
             '|' => {
-                if self.match_char('|') {
-                    self.add_token(TokenType::Or)
-                } else {
-                    return Err(self.error("Expected '|' after '|'"));
-                }
-            },
-            
+                if      self.match_char('|') { self.add_token(TokenType::Or); }
+                else if self.match_char('>') { self.add_token(TokenType::Pipeline); }
+                else if self.match_char('=') { self.add_token(TokenType::OrEqual); }
+                else                        { self.add_token(TokenType::Pipe); }
+            }
+            '^' => {
+                if self.match_char('=') { self.add_token(TokenType::XorEqual); }
+                else                   { self.add_token(TokenType::Caret); }
+            }
+            '?' => {
+                if self.match_char('?') { self.add_token(TokenType::QuestionQuestion); }
+                else                   { self.add_token(TokenType::Question); }
+            }
             // String literals
             '"' => self.string()?,
+            // Char literals
             '\'' => self.char_literal()?,
-            
             // Whitespace
-            ' ' | '\r' | '\t' => {},
+            ' ' | '\r' | '\t' => {}
             '\n' => {
-                self.line += 1;
-                self.column = 1;
-            },
-            
-            // Numbers and identifiers
+                self.line   += 1;
+                self.column  = 1;
+            }
+            // Numbers & identifiers
             _ => {
-                if c.is_digit(10) {
+                if c == '0' && (self.peek() == 'x' || self.peek() == 'X') {
+                    self.advance(); // consume x/X
+                    self.hex_number()?;
+                } else if c == '0' && (self.peek() == 'b' || self.peek() == 'B') {
+                    self.advance();
+                    self.bin_number()?;
+                } else if c.is_ascii_digit() {
                     self.number()?;
                 } else if c.is_alphabetic() || c == '_' {
                     self.identifier();
                 } else {
-                    return Err(self.error(&format!("Unexpected character: '{}'", c)));
+                    return Err(self.error(format!("Unexpected character '{}'", c)));
                 }
             }
         }
         Ok(())
     }
 
+    // ── comments ──────────────────────────────────────────────────────────────
+
     fn block_comment(&mut self) -> Result<()> {
-        let mut nesting = 1;
-        
-        while nesting > 0 {
+        let mut depth = 1usize;
+        while depth > 0 {
             if self.is_at_end() {
                 return Err(self.error("Unterminated block comment"));
             }
-
             if self.peek() == '/' && self.peek_next() == '*' {
-                self.advance();
-                self.advance();
-                nesting += 1;
+                self.advance(); self.advance(); depth += 1;
             } else if self.peek() == '*' && self.peek_next() == '/' {
-                self.advance();
-                self.advance();
-                nesting -= 1;
-            } else if self.peek() == '\n' {
-                self.advance();
-                self.line += 1;
-                self.column = 1;
+                self.advance(); self.advance(); depth -= 1;
             } else {
+                if self.peek() == '\n' { self.line += 1; self.column = 0; }
                 self.advance();
             }
         }
-        
         Ok(())
     }
+
+    // ── string literals ───────────────────────────────────────────────────────
 
     fn string(&mut self) -> Result<()> {
-        let start_line = self.line;
-        let start_column = self.column - 1;  // -1 for the opening "
-
-        while self.peek() != '"' && !self.is_at_end() {
-            if self.peek() == '\n' {
-                self.line += 1;
-                self.column = 1;
+        let mut value = String::new();
+        loop {
+            if self.is_at_end() {
+                return Err(self.error("Unterminated string literal"));
             }
-            self.advance();
+            match self.peek() {
+                '"' => { self.advance(); break; }
+                '\\' => {
+                    self.advance(); // consume backslash
+                    let esc = self.advance();
+                    match esc {
+                        'n'  => value.push('\n'),
+                        'r'  => value.push('\r'),
+                        't'  => value.push('\t'),
+                        '\\' => value.push('\\'),
+                        '"'  => value.push('"'),
+                        '\'' => value.push('\''),
+                        '0'  => value.push('\0'),
+                        'u'  => {
+                            // \u{XXXX}
+                            if !self.match_char('{') {
+                                return Err(self.error("Expected '{' after \\u"));
+                            }
+                            let mut hex = String::new();
+                            while self.peek() != '}' && !self.is_at_end() {
+                                hex.push(self.advance());
+                            }
+                            if !self.match_char('}') {
+                                return Err(self.error("Expected '}' to close \\u{...}"));
+                            }
+                            let code = u32::from_str_radix(&hex, 16)
+                                .map_err(|_| self.error(format!("Invalid Unicode escape \\u{{{}}}", hex)))?;
+                            let ch = char::from_u32(code)
+                                .ok_or_else(|| self.error(format!("Invalid Unicode codepoint {:x}", code)))?;
+                            value.push(ch);
+                        }
+                        other => {
+                            return Err(self.error(format!("Unknown escape sequence '\\{}'", other)));
+                        }
+                    }
+                }
+                '\n' => {
+                    self.line += 1; self.column = 0;
+                    value.push(self.advance());
+                }
+                _ => { value.push(self.advance()); }
+            }
         }
-
-        if self.is_at_end() {
-            return Err(self.error("Unterminated string"));
-        }
-
-        // Consume the closing "
-        self.advance();
-
-        // Extract string value without the quotes
-        let value = self.source[self.start + 1..self.current - 1].to_string();
         self.add_token_with_lexeme(TokenType::StringLiteral, value);
-        
         Ok(())
     }
+
+    // ── char literals ─────────────────────────────────────────────────────────
 
     fn char_literal(&mut self) -> Result<()> {
-        let start_line = self.line;
-        let start_column = self.column - 1;  // -1 for the opening '
-
-        // Allow escaped characters
-        if self.peek() == '\\' {
-            self.advance();
-            if self.is_at_end() {
-                return Err(self.error("Unterminated character literal"));
+        let ch = if self.peek() == '\\' {
+            self.advance(); // consume backslash
+            match self.advance() {
+                'n'  => '\n',
+                'r'  => '\r',
+                't'  => '\t',
+                '\\' => '\\',
+                '\'' => '\'',
+                '"'  => '"',
+                '0'  => '\0',
+                other => return Err(self.error(format!("Unknown escape '\\{}'", other))),
             }
-            self.advance();
-        } else if self.peek() != '\'' {
-            self.advance();
-        } else {
+        } else if self.peek() == '\'' {
             return Err(self.error("Empty character literal"));
-        }
-
-        if self.peek() != '\'' {
-            return Err(self.error("Character literal may contain only one character"));
-        }
-
-        // Consume the closing '
-        self.advance();
-
-        // Extract char value without the quotes
-        let value = self.source[self.start + 1..self.current - 1].to_string();
-        self.add_token_with_lexeme(TokenType::CharLiteral, value);
-        
-        Ok(())
-    }
-
-    fn number(&mut self) -> Result<()> {
-        while self.peek().is_digit(10) {
-            self.advance();
-        }
-
-        // Look for a decimal part
-        if self.peek() == '.' && self.peek_next().is_digit(10) {
-            // Consume the "."
-            self.advance();
-
-            while self.peek().is_digit(10) {
-                self.advance();
-            }
-            
-            // Check for exponent
-            if self.peek() == 'e' || self.peek() == 'E' {
-                self.advance();
-                if self.peek() == '+' || self.peek() == '-' {
-                    self.advance();
-                }
-                if !self.peek().is_digit(10) {
-                    return Err(self.error("Invalid exponent in float literal"));
-                }
-                while self.peek().is_digit(10) {
-                    self.advance();
-                }
-            }
-
-            self.add_token_with_lexeme(
-                TokenType::FloatLiteral,
-                self.source[self.start..self.current].to_string(),
-            );
         } else {
-            self.add_token_with_lexeme(
-                TokenType::IntLiteral,
-                self.source[self.start..self.current].to_string(),
-            );
-        }
-        
-        Ok(())
-    }
-
-    fn identifier(&mut self) {
-        while self.peek().is_alphanumeric() || self.peek() == '_' {
-            self.advance();
-        }
-
-        let text = &self.source[self.start..self.current];
-        let token_type = match text {
-            // Keywords
-            "let" => TokenType::Let,
-            "mut" => TokenType::Mut,
-            "fn" => TokenType::Fn,
-            "if" => TokenType::If,
-            "else" => TokenType::Else,
-            "while" => TokenType::While,
-            "for" => TokenType::For,
-            "in" => TokenType::In,
-            "match" => TokenType::Match,
-            "return" => TokenType::Return,
-            "break" => TokenType::Break,
-            "continue" => TokenType::Continue,
-            "struct" => TokenType::Struct,
-            "enum" => TokenType::Enum,
-            "import" => TokenType::Import,
-            "from" => TokenType::From,
-            "as" => TokenType::As,
-            "pub" => TokenType::Pub,
-            "true" => TokenType::True,
-            "false" => TokenType::False,
-            "none" => TokenType::None,
-            // New keywords
-            "async" => TokenType::Async,
-            "await" => TokenType::Await,
-            "try" => TokenType::Try,
-            "catch" => TokenType::Catch,
-            "finally" => TokenType::Finally,
-            "static" => TokenType::Static,
-            "type" => TokenType::Type,
-            "trait" => TokenType::Trait,
-            "impl" => TokenType::Impl,
-            "self" => TokenType::Self_,
-            "this" => TokenType::This,
-            "result" => TokenType::Result,
-            "ok" => TokenType::Ok,
-            "err" => TokenType::Err,
-            "use" => TokenType::Use,
-            "const" => TokenType::Const,
-            "loop" => TokenType::Loop,
-            // Types
-            "int" => TokenType::Int,
-            "float" => TokenType::Float,
-            "bool" => TokenType::Bool,
-            "string" => TokenType::String,
-            "char" => TokenType::Char,
-            "void" => TokenType::Void,
-            // Identifier
-            _ => TokenType::Identifier,
+            self.advance()
         };
 
-        self.add_token(token_type);
-    }
-
-    fn advance(&mut self) -> char {
-        let c = self.source.chars().nth(self.current).unwrap_or('\0');
-        self.current += 1;
-        self.column += 1;
-        c
-    }
-
-    fn match_char(&mut self, expected: char) -> bool {
-        if self.is_at_end() || self.source.chars().nth(self.current).unwrap_or('\0') != expected {
-            return false;
+        if !self.match_char('\'') {
+            return Err(self.error("Character literal may only contain one character"));
         }
-        
-        self.current += 1;
-        self.column += 1;
-        true
+        self.add_token_with_lexeme(TokenType::CharLiteral, ch.to_string());
+        Ok(())
     }
 
-    fn peek(&self) -> char {
-        if self.is_at_end() {
-            '\0'
+    // ── numeric literals ──────────────────────────────────────────────────────
+
+    fn number(&mut self) -> Result<()> {
+        // Integer part (first digit already consumed)
+        while self.peek().is_ascii_digit() || self.peek() == '_' { self.advance(); }
+
+        // Float?
+        if self.peek() == '.' && self.peek_next().is_ascii_digit() {
+            self.advance(); // consume '.'
+            while self.peek().is_ascii_digit() || self.peek() == '_' { self.advance(); }
+            // Exponent
+            if self.peek() == 'e' || self.peek() == 'E' {
+                self.advance();
+                if self.peek() == '+' || self.peek() == '-' { self.advance(); }
+                if !self.peek().is_ascii_digit() {
+                    return Err(self.error("Expected digits after exponent"));
+                }
+                while self.peek().is_ascii_digit() { self.advance(); }
+            }
+            let raw: String = self.source[self.start..self.current]
+                .iter().filter(|&&c| c != '_').collect();
+            self.add_token_with_lexeme(TokenType::FloatLiteral, raw);
         } else {
-            self.source.chars().nth(self.current).unwrap_or('\0')
+            // Optional integer suffix (e.g. 42u64 — we strip the suffix for now)
+            while self.peek().is_ascii_alphanumeric() { self.advance(); }
+            let raw: String = self.source[self.start..self.current]
+                .iter().filter(|&&c| c != '_' && !c.is_alphabetic()).collect();
+            self.add_token_with_lexeme(TokenType::IntLiteral, raw);
         }
+        Ok(())
     }
 
-    fn peek_next(&self) -> char {
-        if self.current + 1 >= self.source.len() {
-            '\0'
-        } else {
-            self.source.chars().nth(self.current + 1).unwrap_or('\0')
+    fn hex_number(&mut self) -> Result<()> {
+        if !self.peek().is_ascii_hexdigit() {
+            return Err(self.error("Expected hex digits after '0x'"));
         }
+        while self.peek().is_ascii_hexdigit() || self.peek() == '_' { self.advance(); }
+        let raw: String = self.source[self.start + 2..self.current]
+            .iter().filter(|&&c| c != '_').collect();
+        let value = i64::from_str_radix(&raw, 16)
+            .map_err(|_| self.error(format!("Invalid hex literal '{}'", raw)))?;
+        self.add_token_with_lexeme(TokenType::IntLiteral, value.to_string());
+        Ok(())
     }
 
-    fn add_token(&mut self, token_type: TokenType) {
-        let lexeme = self.source[self.start..self.current].to_string();
-        self.add_token_with_lexeme(token_type, lexeme);
+    fn bin_number(&mut self) -> Result<()> {
+        if self.peek() != '0' && self.peek() != '1' {
+            return Err(self.error("Expected binary digits after '0b'"));
+        }
+        while self.peek() == '0' || self.peek() == '1' || self.peek() == '_' { self.advance(); }
+        let raw: String = self.source[self.start + 2..self.current]
+            .iter().filter(|&&c| c != '_').collect();
+        let value = i64::from_str_radix(&raw, 2)
+            .map_err(|_| self.error(format!("Invalid binary literal '{}'", raw)))?;
+        self.add_token_with_lexeme(TokenType::IntLiteral, value.to_string());
+        Ok(())
     }
 
-    fn add_token_with_lexeme(&mut self, token_type: TokenType, lexeme: String) {
-        self.tokens.push(Token::new(
-            token_type,
-            lexeme,
-            self.line,
-            self.column - (self.current - self.start),
-        ));
-    }
+    // ── identifiers / keywords ────────────────────────────────────────────────
 
-    fn is_at_end(&self) -> bool {
-        self.current >= self.source.len()
+    fn identifier(&mut self) {
+        while self.peek().is_alphanumeric() || self.peek() == '_' { self.advance(); }
+        let text: String = self.source[self.start..self.current].iter().collect();
+        let tt = keyword_or_ident(&text);
+        self.add_token(tt);
     }
-} 
+}
+
+fn keyword_or_ident(text: &str) -> TokenType {
+    match text {
+        "let"       => TokenType::Let,
+        "mut"       => TokenType::Mut,
+        "fn"        => TokenType::Fn,
+        "if"        => TokenType::If,
+        "else"      => TokenType::Else,
+        "while"     => TokenType::While,
+        "for"       => TokenType::For,
+        "in"        => TokenType::In,
+        "match"     => TokenType::Match,
+        "return"    => TokenType::Return,
+        "break"     => TokenType::Break,
+        "continue"  => TokenType::Continue,
+        "struct"    => TokenType::Struct,
+        "enum"      => TokenType::Enum,
+        "import"    => TokenType::Import,
+        "from"      => TokenType::From,
+        "as"        => TokenType::As,
+        "pub"       => TokenType::Pub,
+        "true"      => TokenType::True,
+        "false"     => TokenType::False,
+        "none"      => TokenType::None,
+        "async"     => TokenType::Async,
+        "await"     => TokenType::Await,
+        "try"       => TokenType::Try,
+        "catch"     => TokenType::Catch,
+        "finally"   => TokenType::Finally,
+        "static"    => TokenType::Static,
+        "type"      => TokenType::Type,
+        "trait"     => TokenType::Trait,
+        "impl"      => TokenType::Impl,
+        "self"      => TokenType::Self_,
+        "this"      => TokenType::This,
+        "use"       => TokenType::Use,
+        "const"     => TokenType::Const,
+        "loop"      => TokenType::Loop,
+        "where"     => TokenType::Where,
+        "mod"       => TokenType::Mod,
+        "extern"    => TokenType::Extern,
+        "unsafe"    => TokenType::Unsafe,
+        "ref"       => TokenType::Ref,
+        "box"       => TokenType::Box_,
+        "is"        => TokenType::Is,
+        "int"       => TokenType::Int,
+        "float"     => TokenType::Float,
+        "bool"      => TokenType::Bool,
+        "string"    => TokenType::String_,
+        "char"      => TokenType::Char_,
+        "void"      => TokenType::Void,
+        _           => TokenType::Identifier,
+    }
+}

@@ -1,503 +1,311 @@
-use crate::error::ShitRustError;
-use crate::interpreter::{Value, NativeFunctionSignature};
-use std::io::{self, Write, Read, BufRead, BufReader, SeekFrom, Seek};
-use std::fs::{self, File, OpenOptions};
-use std::path::Path;
 use std::collections::HashMap;
+use crate::interpreter::Value;
+use crate::error::{BruteError, Result};
 
-/// Standard library for IO operations
-pub fn init_io_module() -> Vec<(String, Value)> {
-    vec![
-        // Print to stdout without newline
-        (
-            "print".to_string(),
-            Value::NativeFunction {
-                name: "print".to_string(),
-                func: Box::new(|args| {
-                    if args.is_empty() {
-                        return Err(ShitRustError::RuntimeError("print requires at least one argument".to_string()));
-                    }
-                    
-                    for arg in args {
-                        print!("{}", arg);
-                        io::stdout().flush().unwrap();
-                    }
-                    
+/// Returns a map of name → Value for the io module.
+pub fn module() -> HashMap<String, Value> {
+    let mut m: HashMap<String, Value> = HashMap::new();
+
+    m.insert("println".into(), Value::NativeFunction {
+        name: "io::println".into(),
+        func: |_interp, args| {
+            let parts: Vec<String> = args.iter().map(|v| v.display()).collect();
+            println!("{}", parts.join(" "));
+            Ok(Value::None)
+        },
+    });
+
+    m.insert("print".into(), Value::NativeFunction {
+        name: "io::print".into(),
+        func: |_interp, args| {
+            let parts: Vec<String> = args.iter().map(|v| v.display()).collect();
+            print!("{}", parts.join(" "));
+            Ok(Value::None)
+        },
+    });
+
+    m.insert("read_line".into(), Value::NativeFunction {
+        name: "io::read_line".into(),
+        func: |_interp, _args| {
+            let mut line = String::new();
+            std::io::stdin().read_line(&mut line)
+                .map_err(|e| BruteError::IOException(e.to_string()))?;
+            Ok(Value::String(line.trim_end_matches('\n').trim_end_matches('\r').to_string()))
+        },
+    });
+
+    m.insert("input".into(), Value::NativeFunction {
+        name: "io::input".into(),
+        func: |_interp, args| {
+            if let Some(prompt) = args.first() {
+                print!("{}", prompt.display());
+                use std::io::Write;
+                std::io::stdout().flush().ok();
+            }
+            let mut line = String::new();
+            std::io::stdin().read_line(&mut line)
+                .map_err(|e| BruteError::IOException(e.to_string()))?;
+            Ok(Value::String(line.trim_end_matches('\n').trim_end_matches('\r').to_string()))
+        },
+    });
+
+    // io.open(path, mode) -> File object.
+    // mode: "r" (read), "w" (write/truncate), "a" (append). Default "r".
+    m.insert("open".into(), Value::NativeFunction {
+        name: "io::open".into(),
+        func: |_interp, args| {
+            let path = args.get(0).map(|v| v.display())
+                .ok_or_else(|| BruteError::ArgumentError("open() requires a path".into()))?;
+            let mode = args.get(1).map(|v| v.display()).unwrap_or_else(|| "r".into());
+            if !matches!(mode.as_str(), "r" | "w" | "a") {
+                return Err(BruteError::ValueError(
+                    format!("invalid open mode '{}'; expected r, w or a", mode)));
+            }
+            if mode == "w" {
+                std::fs::File::create(&path)
+                    .map_err(|e| BruteError::IOException(e.to_string()))?;
+            } else if mode == "a" {
+                std::fs::OpenOptions::new().create(true).append(true).open(&path)
+                    .map_err(|e| BruteError::IOException(e.to_string()))?;
+            } else if !std::path::Path::new(&path).exists() {
+                return Err(BruteError::IOException(format!("file not found: {}", path)));
+            }
+
+            let mut fields = HashMap::new();
+            fields.insert("path".into(), Value::String(path));
+            fields.insert("mode".into(), Value::String(mode));
+            fields.insert("read_text".into(), Value::NativeFunction {
+                name: "File::read_text".into(),
+                func: |_i, a| {
+                    let path = obj_field(&a, "path")?;
+                    std::fs::read_to_string(&path).map(Value::String)
+                        .map_err(|e| BruteError::IOException(e.to_string()))
+                },
+            });
+            fields.insert("write_text".into(), Value::NativeFunction {
+                name: "File::write_text".into(),
+                func: |_i, a| {
+                    let path = obj_field(&a, "path")?;
+                    let text = a.get(1).map(|v| v.display()).unwrap_or_default();
+                    std::fs::write(&path, text)
+                        .map_err(|e| BruteError::IOException(e.to_string()))?;
                     Ok(Value::None)
-                }),
-                arity: -1, // variadic
-            }
-        ),
-        
-        // Print to stdout with newline
-        (
-            "println".to_string(),
-            Value::NativeFunction {
-                name: "println".to_string(),
-                func: Box::new(|args| {
-                    if args.is_empty() {
-                        println!();
-                        return Ok(Value::None);
-                    }
-                    
-                    for arg in args {
-                        print!("{}", arg);
-                    }
-                    println!();
-                    
+                },
+            });
+            fields.insert("append_text".into(), Value::NativeFunction {
+                name: "File::append_text".into(),
+                func: |_i, a| {
+                    let path = obj_field(&a, "path")?;
+                    let text = a.get(1).map(|v| v.display()).unwrap_or_default();
+                    let mut f = std::fs::OpenOptions::new().append(true).open(&path)
+                        .map_err(|e| BruteError::IOException(e.to_string()))?;
+                    use std::io::Write;
+                    f.write_all(text.as_bytes())
+                        .map_err(|e| BruteError::IOException(e.to_string()))?;
                     Ok(Value::None)
-                }),
-                arity: -1, // variadic
-            }
-        ),
-        
-        // Read a line from stdin
-        (
-            "input".to_string(),
-            Value::NativeFunction {
-                name: "input".to_string(),
-                func: Box::new(|args| {
-                    if !args.is_empty() {
-                        // Print prompt if provided
-                        for arg in args {
-                            print!("{}", arg);
-                        }
-                        io::stdout().flush().unwrap();
-                    }
-                    
-                    let mut buffer = String::new();
-                    match io::stdin().read_line(&mut buffer) {
-                        Ok(_) => {
-                            // Remove trailing newline
-                            if buffer.ends_with('\n') {
-                                buffer.pop();
-                                if buffer.ends_with('\r') {
-                                    buffer.pop();
-                                }
-                            }
-                            Ok(Value::String(buffer))
-                        },
-                        Err(e) => Err(ShitRustError::RuntimeError(format!("Failed to read input: {}", e))),
-                    }
-                }),
-                arity: -1, // variadic, optional prompt
-            }
-        ),
-        
-        // Open a file
-        (
-            "open".to_string(),
-            Value::NativeFunction {
-                name: "open".to_string(),
-                func: Box::new(|args| {
-                    if args.len() < 1 || args.len() > 2 {
-                        return Err(ShitRustError::RuntimeError("open requires a filename and optional mode".to_string()));
-                    }
-                    
-                    let filename = match &args[0] {
-                        Value::String(s) => s.clone(),
-                        _ => return Err(ShitRustError::TypeError("Filename must be a string".to_string())),
-                    };
-                    
-                    let mode = if args.len() > 1 {
-                        match &args[1] {
-                            Value::String(s) => s.clone(),
-                            _ => return Err(ShitRustError::TypeError("Mode must be a string".to_string())),
-                        }
-                    } else {
-                        "r".to_string() // default to read mode
-                    };
-                    
-                    // Create a File object with appropriate methods
-                    let mut file_obj = HashMap::new();
-                    file_obj.insert("__type".to_string(), Value::String("File".to_string()));
-                    file_obj.insert("path".to_string(), Value::String(filename.clone()));
-                    file_obj.insert("mode".to_string(), Value::String(mode.clone()));
-                    
-                    // Add method to read entire file as text
-                    file_obj.insert("read_text".to_string(), Value::NativeFunction {
-                        name: "read_text".to_string(),
-                        func: Box::new(move |_| {
-                            let mut file = match File::open(&filename) {
-                                Ok(f) => f,
-                                Err(e) => return Err(ShitRustError::RuntimeError(format!("Failed to open file: {}", e))),
-                            };
-                            
-                            let mut contents = String::new();
-                            match file.read_to_string(&mut contents) {
-                                Ok(_) => Ok(Value::String(contents)),
-                                Err(e) => Err(ShitRustError::RuntimeError(format!("Failed to read file: {}", e))),
-                            }
-                        }),
-                        arity: 0,
-                    });
-                    
-                    // Add method to read all lines as a list
-                    file_obj.insert("read_lines".to_string(), Value::NativeFunction {
-                        name: "read_lines".to_string(),
-                        func: Box::new(move |_| {
-                            let file = match File::open(&filename) {
-                                Ok(f) => f,
-                                Err(e) => return Err(ShitRustError::RuntimeError(format!("Failed to open file: {}", e))),
-                            };
-                            
-                            let reader = BufReader::new(file);
-                            let mut lines = Vec::new();
-                            
-                            for line in reader.lines() {
-                                match line {
-                                    Ok(line_str) => lines.push(Value::String(line_str)),
-                                    Err(e) => return Err(ShitRustError::RuntimeError(format!("Failed to read line: {}", e))),
-                                }
-                            }
-                            
-                            Ok(Value::List(lines))
-                        }),
-                        arity: 0,
-                    });
-                    
-                    // Add method to read binary data
-                    file_obj.insert("read_bytes".to_string(), Value::NativeFunction {
-                        name: "read_bytes".to_string(),
-                        func: Box::new(move |args| {
-                            let size = if args.len() > 0 {
-                                match &args[0] {
-                                    Value::Int(n) => *n as usize,
-                                    _ => return Err(ShitRustError::TypeError("Size must be an integer".to_string())),
-                                }
-                            } else {
-                                // Read all bytes if no size specified
-                                usize::MAX
-                            };
-                            
-                            let mut file = match File::open(&filename) {
-                                Ok(f) => f,
-                                Err(e) => return Err(ShitRustError::RuntimeError(format!("Failed to open file: {}", e))),
-                            };
-                            
-                            if size == usize::MAX {
-                                // Read all bytes
-                                let mut bytes = Vec::new();
-                                match file.read_to_end(&mut bytes) {
-                                    Ok(_) => {
-                                        let byte_values: Vec<Value> = bytes.into_iter()
-                                            .map(|b| Value::Int(b as i64))
-                                            .collect();
-                                        Ok(Value::List(byte_values))
-                                    },
-                                    Err(e) => Err(ShitRustError::RuntimeError(format!("Failed to read bytes: {}", e))),
-                                }
-                            } else {
-                                // Read specified number of bytes
-                                let mut bytes = vec![0; size];
-                                match file.read_exact(&mut bytes) {
-                                    Ok(_) => {
-                                        let byte_values: Vec<Value> = bytes.into_iter()
-                                            .map(|b| Value::Int(b as i64))
-                                            .collect();
-                                        Ok(Value::List(byte_values))
-                                    },
-                                    Err(e) => Err(ShitRustError::RuntimeError(format!("Failed to read bytes: {}", e))),
-                                }
-                            }
-                        }),
-                        arity: -1, // 0 or 1 args
-                    });
-                    
-                    // Add method to write text
-                    file_obj.insert("write_text".to_string(), Value::NativeFunction {
-                        name: "write_text".to_string(),
-                        func: Box::new(move |args| {
-                            if args.len() != 1 {
-                                return Err(ShitRustError::RuntimeError("write_text requires one argument".to_string()));
-                            }
-                            
-                            let data = match &args[0] {
-                                Value::String(s) => s.clone(),
-                                _ => return Err(ShitRustError::TypeError("Data must be a string".to_string())),
-                            };
-                            
-                            let mut options = OpenOptions::new();
-                            
-                            match mode.as_str() {
-                                "w" => {
-                                    options.write(true).truncate(true).create(true);
-                                },
-                                "a" => {
-                                    options.write(true).append(true).create(true);
-                                },
-                                "r+" => {
-                                    options.read(true).write(true);
-                                },
-                                "w+" => {
-                                    options.read(true).write(true).truncate(true).create(true);
-                                },
-                                "a+" => {
-                                    options.read(true).write(true).append(true).create(true);
-                                },
-                                _ => {
-                                    return Err(ShitRustError::RuntimeError(format!("Invalid file mode: {}", mode)));
-                                }
-                            }
-                            
-                            let mut file = match options.open(&filename) {
-                                Ok(f) => f,
-                                Err(e) => return Err(ShitRustError::RuntimeError(format!("Failed to open file: {}", e))),
-                            };
-                            
-                            match file.write_all(data.as_bytes()) {
-                                Ok(_) => Ok(Value::None),
-                                Err(e) => Err(ShitRustError::RuntimeError(format!("Failed to write to file: {}", e))),
-                            }
-                        }),
-                        arity: 1,
-                    });
-                    
-                    // Add method to write bytes
-                    file_obj.insert("write_bytes".to_string(), Value::NativeFunction {
-                        name: "write_bytes".to_string(),
-                        func: Box::new(move |args| {
-                            if args.len() != 1 {
-                                return Err(ShitRustError::RuntimeError("write_bytes requires one argument".to_string()));
-                            }
-                            
-                            let bytes = match &args[0] {
-                                Value::List(list) => {
-                                    let mut byte_array = Vec::new();
-                                    for item in list {
-                                        match item {
-                                            Value::Int(n) => {
-                                                if *n < 0 || *n > 255 {
-                                                    return Err(ShitRustError::RuntimeError(format!("Byte value out of range: {}", n)));
-                                                }
-                                                byte_array.push(*n as u8);
-                                            },
-                                            _ => return Err(ShitRustError::TypeError("Byte list must contain integers".to_string())),
-                                        }
-                                    }
-                                    byte_array
-                                },
-                                _ => return Err(ShitRustError::TypeError("Expected a list of bytes".to_string())),
-                            };
-                            
-                            let mut options = OpenOptions::new();
-                            
-                            match mode.as_str() {
-                                "w" => {
-                                    options.write(true).truncate(true).create(true);
-                                },
-                                "a" => {
-                                    options.write(true).append(true).create(true);
-                                },
-                                "r+" => {
-                                    options.read(true).write(true);
-                                },
-                                "w+" => {
-                                    options.read(true).write(true).truncate(true).create(true);
-                                },
-                                "a+" => {
-                                    options.read(true).write(true).append(true).create(true);
-                                },
-                                _ => {
-                                    return Err(ShitRustError::RuntimeError(format!("Invalid file mode: {}", mode)));
-                                }
-                            }
-                            
-                            let mut file = match options.open(&filename) {
-                                Ok(f) => f,
-                                Err(e) => return Err(ShitRustError::RuntimeError(format!("Failed to open file: {}", e))),
-                            };
-                            
-                            match file.write_all(&bytes) {
-                                Ok(_) => Ok(Value::None),
-                                Err(e) => Err(ShitRustError::RuntimeError(format!("Failed to write bytes to file: {}", e))),
-                            }
-                        }),
-                        arity: 1,
-                    });
-                    
-                    // Add method to close file
-                    file_obj.insert("close".to_string(), Value::NativeFunction {
-                        name: "close".to_string(),
-                        func: Box::new(|_| {
-                            // Files are automatically closed when dropped in Rust
-                            Ok(Value::None)
-                        }),
-                        arity: 0,
-                    });
-                    
-                    Ok(Value::Object(file_obj))
-                }),
-                arity: -1, // 1 or 2 args
-            }
-        ),
-        
-        // File system operations
-        (
-            "exists".to_string(),
-            Value::NativeFunction {
-                name: "exists".to_string(),
-                func: Box::new(|args| {
-                    if args.len() != 1 {
-                        return Err(ShitRustError::RuntimeError("exists requires a path argument".to_string()));
-                    }
-                    
-                    let path = match &args[0] {
-                        Value::String(s) => s.clone(),
-                        _ => return Err(ShitRustError::TypeError("Path must be a string".to_string())),
-                    };
-                    
-                    Ok(Value::Bool(Path::new(&path).exists()))
-                }),
-                arity: 1,
-            }
-        ),
-        
-        (
-            "is_file".to_string(),
-            Value::NativeFunction {
-                name: "is_file".to_string(),
-                func: Box::new(|args| {
-                    if args.len() != 1 {
-                        return Err(ShitRustError::RuntimeError("is_file requires a path argument".to_string()));
-                    }
-                    
-                    let path = match &args[0] {
-                        Value::String(s) => s.clone(),
-                        _ => return Err(ShitRustError::TypeError("Path must be a string".to_string())),
-                    };
-                    
-                    Ok(Value::Bool(Path::new(&path).is_file()))
-                }),
-                arity: 1,
-            }
-        ),
-        
-        (
-            "is_dir".to_string(),
-            Value::NativeFunction {
-                name: "is_dir".to_string(),
-                func: Box::new(|args| {
-                    if args.len() != 1 {
-                        return Err(ShitRustError::RuntimeError("is_dir requires a path argument".to_string()));
-                    }
-                    
-                    let path = match &args[0] {
-                        Value::String(s) => s.clone(),
-                        _ => return Err(ShitRustError::TypeError("Path must be a string".to_string())),
-                    };
-                    
-                    Ok(Value::Bool(Path::new(&path).is_dir()))
-                }),
-                arity: 1,
-            }
-        ),
-        
-        (
-            "create_dir".to_string(),
-            Value::NativeFunction {
-                name: "create_dir".to_string(),
-                func: Box::new(|args| {
-                    if args.len() != 1 {
-                        return Err(ShitRustError::RuntimeError("create_dir requires a path argument".to_string()));
-                    }
-                    
-                    let path = match &args[0] {
-                        Value::String(s) => s.clone(),
-                        _ => return Err(ShitRustError::TypeError("Path must be a string".to_string())),
-                    };
-                    
-                    match fs::create_dir_all(&path) {
-                        Ok(_) => Ok(Value::Bool(true)),
-                        Err(e) => Err(ShitRustError::RuntimeError(format!("Failed to create directory: {}", e))),
-                    }
-                }),
-                arity: 1,
-            }
-        ),
-        
-        (
-            "remove_file".to_string(),
-            Value::NativeFunction {
-                name: "remove_file".to_string(),
-                func: Box::new(|args| {
-                    if args.len() != 1 {
-                        return Err(ShitRustError::RuntimeError("remove_file requires a path argument".to_string()));
-                    }
-                    
-                    let path = match &args[0] {
-                        Value::String(s) => s.clone(),
-                        _ => return Err(ShitRustError::TypeError("Path must be a string".to_string())),
-                    };
-                    
-                    match fs::remove_file(&path) {
-                        Ok(_) => Ok(Value::Bool(true)),
-                        Err(e) => Err(ShitRustError::RuntimeError(format!("Failed to remove file: {}", e))),
-                    }
-                }),
-                arity: 1,
-            }
-        ),
-        
-        (
-            "remove_dir".to_string(),
-            Value::NativeFunction {
-                name: "remove_dir".to_string(),
-                func: Box::new(|args| {
-                    if args.len() != 1 {
-                        return Err(ShitRustError::RuntimeError("remove_dir requires a path argument".to_string()));
-                    }
-                    
-                    let path = match &args[0] {
-                        Value::String(s) => s.clone(),
-                        _ => return Err(ShitRustError::TypeError("Path must be a string".to_string())),
-                    };
-                    
-                    match fs::remove_dir_all(&path) {
-                        Ok(_) => Ok(Value::Bool(true)),
-                        Err(e) => Err(ShitRustError::RuntimeError(format!("Failed to remove directory: {}", e))),
-                    }
-                }),
-                arity: 1,
-            }
-        ),
-        
-        (
-            "list_dir".to_string(),
-            Value::NativeFunction {
-                name: "list_dir".to_string(),
-                func: Box::new(|args| {
-                    if args.len() != 1 {
-                        return Err(ShitRustError::RuntimeError("list_dir requires a path argument".to_string()));
-                    }
-                    
-                    let path = match &args[0] {
-                        Value::String(s) => s.clone(),
-                        _ => return Err(ShitRustError::TypeError("Path must be a string".to_string())),
-                    };
-                    
-                    let entries = match fs::read_dir(&path) {
-                        Ok(entries) => entries,
-                        Err(e) => return Err(ShitRustError::RuntimeError(format!("Failed to read directory: {}", e))),
-                    };
-                    
-                    let mut files = Vec::new();
-                    
-                    for entry in entries {
-                        match entry {
-                            Ok(entry) => {
-                                if let Ok(path) = entry.path().into_os_string().into_string() {
-                                    files.push(Value::String(path));
-                                }
-                            },
-                            Err(e) => return Err(ShitRustError::RuntimeError(format!("Failed to read directory entry: {}", e))),
-                        }
-                    }
-                    
-                    Ok(Value::List(files))
-                }),
-                arity: 1,
-            }
-        ),
-    ]
-} 
+                },
+            });
+            fields.insert("read_lines".into(), Value::NativeFunction {
+                name: "File::read_lines".into(),
+                func: |_i, a| {
+                    let path = obj_field(&a, "path")?;
+                    let s = std::fs::read_to_string(&path)
+                        .map_err(|e| BruteError::IOException(e.to_string()))?;
+                    Ok(Value::List(s.lines().map(|l| Value::String(l.into())).collect()))
+                },
+            });
+            fields.insert("read_bytes".into(), Value::NativeFunction {
+                name: "File::read_bytes".into(),
+                func: |_i, a| {
+                    let path = obj_field(&a, "path")?;
+                    let b = std::fs::read(&path)
+                        .map_err(|e| BruteError::IOException(e.to_string()))?;
+                    String::from_utf8(b).map(Value::String)
+                        .map_err(|e| BruteError::ValueError(format!("not UTF-8: {}", e)))
+                },
+            });
+            fields.insert("write_bytes".into(), Value::NativeFunction {
+                name: "File::write_bytes".into(),
+                func: |_i, a| {
+                    let path = obj_field(&a, "path")?;
+                    let text = a.get(1).map(|v| v.display()).unwrap_or_default();
+                    std::fs::write(&path, text.as_bytes())
+                        .map_err(|e| BruteError::IOException(e.to_string()))?;
+                    Ok(Value::None)
+                },
+            });
+            fields.insert("exists".into(), Value::NativeFunction {
+                name: "File::exists".into(),
+                func: |_i, a| {
+                    let path = obj_field(&a, "path")?;
+                    Ok(Value::Bool(std::path::Path::new(&path).exists()))
+                },
+            });
+            fields.insert("close".into(), Value::NativeFunction {
+                name: "File::close".into(),
+                func: |_i, _a| Ok(Value::None),
+            });
+            fields.insert("to_string".into(), Value::NativeFunction {
+                name: "File::to_string".into(),
+                func: |_i, a| {
+                    let path = obj_field(&a, "path")?;
+                    Ok(Value::String(format!("File(\"{}\")", path)))
+                },
+            });
+            Ok(Value::Object { type_name: "File".into(), fields })
+        },
+    });
+
+    // `io.File` — same constructor as `open`, exposed as a namespace so both
+    // `io.File("p", "w")` and `io.File::open("p", "w")` work.
+    if let Some(open_fn) = m.get("open").cloned() {
+        let mut file_ns = HashMap::new();
+        file_ns.insert("new".into(), open_fn.clone());
+        file_ns.insert("open".into(), open_fn);
+        m.insert("File".into(), Value::Dict(file_ns));
+    }
+
+    // `io.Path` — `io.Path::new("dir/file.txt")` → path object.
+    let mut path_ns = HashMap::new();
+    path_ns.insert("new".into(), Value::NativeFunction {
+        name: "Path::new".into(),
+        func: |_i, a| Ok(path_obj(a.get(0).map(|v| v.display()).unwrap_or_default())),
+    });
+    m.insert("Path".into(), Value::Dict(path_ns));
+
+    // ── filesystem helpers ───────────────────────────────────────────────
+    m.insert("exists".into(), Value::NativeFunction {
+        name: "io::exists".into(),
+        func: |_i, a| Ok(Value::Bool(std::path::Path::new(
+            &a.get(0).map(|v| v.display()).unwrap_or_default()).exists())),
+    });
+    m.insert("is_file".into(), Value::NativeFunction {
+        name: "io::is_file".into(),
+        func: |_i, a| Ok(Value::Bool(std::path::Path::new(
+            &a.get(0).map(|v| v.display()).unwrap_or_default()).is_file())),
+    });
+    m.insert("is_dir".into(), Value::NativeFunction {
+        name: "io::is_dir".into(),
+        func: |_i, a| Ok(Value::Bool(std::path::Path::new(
+            &a.get(0).map(|v| v.display()).unwrap_or_default()).is_dir())),
+    });
+    m.insert("create_dir".into(), Value::NativeFunction {
+        name: "io::create_dir".into(),
+        func: |_i, a| {
+            let p = a.get(0).map(|v| v.display()).unwrap_or_default();
+            std::fs::create_dir_all(&p).map(|_| Value::None)
+                .map_err(|e| BruteError::IOException(e.to_string()))
+        },
+    });
+    m.insert("remove_file".into(), Value::NativeFunction {
+        name: "io::remove_file".into(),
+        func: |_i, a| {
+            let p = a.get(0).map(|v| v.display()).unwrap_or_default();
+            std::fs::remove_file(&p).map(|_| Value::None)
+                .map_err(|e| BruteError::IOException(e.to_string()))
+        },
+    });
+    m.insert("remove_dir".into(), Value::NativeFunction {
+        name: "io::remove_dir".into(),
+        func: |_i, a| {
+            let p = a.get(0).map(|v| v.display()).unwrap_or_default();
+            std::fs::remove_dir_all(&p).map(|_| Value::None)
+                .map_err(|e| BruteError::IOException(e.to_string()))
+        },
+    });
+    m.insert("list_dir".into(), Value::NativeFunction {
+        name: "io::list_dir".into(),
+        func: |_i, a| {
+            let p = a.get(0).map(|v| v.display()).unwrap_or_else(|| ".".into());
+            let entries = std::fs::read_dir(&p)
+                .map_err(|e| BruteError::IOException(e.to_string()))?;
+            let names: Vec<Value> = entries.filter_map(|e| e.ok())
+                .map(|e| Value::String(e.file_name().to_string_lossy().into_owned()))
+                .collect();
+            Ok(Value::List(names))
+        },
+    });
+    m.insert("read_file".into(), Value::NativeFunction {
+        name: "io::read_file".into(),
+        func: |_i, a| {
+            let p = a.get(0).map(|v| v.display()).unwrap_or_default();
+            std::fs::read_to_string(&p).map(Value::String)
+                .map_err(|e| BruteError::IOException(e.to_string()))
+        },
+    });
+    m.insert("write_file".into(), Value::NativeFunction {
+        name: "io::write_file".into(),
+        func: |_i, a| {
+            let p = a.get(0).map(|v| v.display()).unwrap_or_default();
+            let text = a.get(1).map(|v| v.display()).unwrap_or_default();
+            std::fs::write(&p, text).map(|_| Value::None)
+                .map_err(|e| BruteError::IOException(e.to_string()))
+        },
+    });
+    m.insert("append_file".into(), Value::NativeFunction {
+        name: "io::append_file".into(),
+        func: |_i, a| {
+            let p = a.get(0).map(|v| v.display()).unwrap_or_default();
+            let text = a.get(1).map(|v| v.display()).unwrap_or_default();
+            let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&p)
+                .map_err(|e| BruteError::IOException(e.to_string()))?;
+            use std::io::Write;
+            f.write_all(text.as_bytes()).map(|_| Value::None)
+                .map_err(|e| BruteError::IOException(e.to_string()))
+        },
+    });
+
+    m
+}
+
+fn path_obj(path: String) -> Value {
+    let mut fields = HashMap::new();
+    fields.insert("path".into(), Value::String(path));
+    fields.insert("join".into(), Value::NativeFunction {
+        name: "Path::join".into(),
+        func: |_i, a| {
+            let base = obj_field(&a, "path")?;
+            let seg = a.get(1).map(|v| v.display()).unwrap_or_default();
+            Ok(path_obj(std::path::Path::new(&base).join(&seg)
+                .to_string_lossy().into_owned()))
+        },
+    });
+    fields.insert("exists".into(), Value::NativeFunction {
+        name: "Path::exists".into(),
+        func: |_i, a| {
+            let p = obj_field(&a, "path")?;
+            Ok(Value::Bool(std::path::Path::new(&p).exists()))
+        },
+    });
+    fields.insert("parent".into(), Value::NativeFunction {
+        name: "Path::parent".into(),
+        func: |_i, a| {
+            let p = obj_field(&a, "path")?;
+            Ok(path_obj(std::path::Path::new(&p).parent()
+                .map(|q| q.to_string_lossy().into_owned()).unwrap_or_default()))
+        },
+    });
+    fields.insert("file_name".into(), Value::NativeFunction {
+        name: "Path::file_name".into(),
+        func: |_i, a| {
+            let p = obj_field(&a, "path")?;
+            Ok(Value::String(std::path::Path::new(&p).file_name()
+                .map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()))
+        },
+    });
+    fields.insert("to_string".into(), Value::NativeFunction {
+        name: "Path::to_string".into(),
+        func: |_i, a| obj_field(&a, "path").map(Value::String),
+    });
+    Value::Object { type_name: "Path".into(), fields }
+}
+
+fn obj_field(args: &[Value], name: &str) -> Result<String> {
+    match args.get(0) {
+        Some(Value::Object { fields, .. }) => {
+            fields.get(name).map(|v| v.display())
+                .ok_or_else(|| BruteError::RuntimeError(format!("object has no field '{}'", name)))
+        }
+        _ => Err(BruteError::RuntimeError("method called on non-object".into())),
+    }
+}
