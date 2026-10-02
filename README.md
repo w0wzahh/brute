@@ -1,380 +1,250 @@
-# Brute
-
 <div align="center">
-  <img src="assets/icon.svg" alt="Brute Logo" width="200" />
+  <img src="assets/icon.svg" alt="Brute logo" width="140" />
+
+  <h1>Brute</h1>
+
+  <p><strong>Rust's safety. Python's readability. C's speed. Pick all three.</strong></p>
+
+  <p>
+    <a href="https://github.com/w0wzahh/brute/releases"><img src="https://img.shields.io/badge/version-0.5.0-facc00?style=for-the-badge" alt="Version" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/w0wzahh/brute?style=for-the-badge&color=4fd1b5" alt="License" /></a>
+    <a href="https://github.com/w0wzahh/brute/stargazers"><img src="https://img.shields.io/github/stars/w0wzahh/brute?style=for-the-badge&color=ff6b9d" alt="Stars" /></a>
+    <a href="https://github.com/w0wzahh/brute/issues"><img src="https://img.shields.io/github/issues/w0wzahh/brute?style=for-the-badge&color=a78bfa" alt="Issues" /></a>
+    <img src="https://img.shields.io/badge/written%20in-Rust-e8855a?style=for-the-badge&logo=rust&logoColor=white" alt="Written in Rust" />
+  </p>
+
+  <p>
+    <a href="#quick-start">Quick Start</a> ·
+    <a href="#features">Features</a> ·
+    <a href="#cli">CLI</a> ·
+    <a href="#language-tour">Language Tour</a> ·
+    <a href="#documentation">Docs</a>
+  </p>
 </div>
 
-Brute is a powerful and flexible programming language that combines the best features from Rust, Python, and C/C++. It's designed to offer memory safety, readability, and performance while providing a modern, ergonomic syntax.
+---
 
-## Key Features
+Brute is a compiled, statically-typed programming language written in Rust. It
+pairs an ownership-style memory model with a clean, forgiving syntax — no
+garbage collector, no runtime bloat, and error messages that actually help.
+Programs can be **compiled to native executables** via the LLVM backend or
+**interpreted** for fast iteration.
 
-- **Memory Safety**: Inspired by Rust's ownership model to prevent memory leaks and race conditions
-- **Type System**: Strong static typing with powerful type inference
-- **Performance**: LLVM-based optimizing compiler for high-performance executables
-- **Concurrency**: Built-in thread support, mutexes, condition variables, and thread-safe primitives
-- **Async Runtime**: First-class async/await support with futures and non-blocking I/O
-- **Cryptography**: Comprehensive crypto primitives for secure applications
-- **Modern Syntax**: Clean, expressive syntax that combines Rust, Python, and C++ styles
-- **Error Handling**: Robust error handling with Result types and pattern matching
-- **Interactive Development**: Both compiled and interpreted execution modes
-- **Tooling**: Formatter, type checker, and comprehensive CLI
+```rust
+fn main() -> void {
+    let name = "world";
 
-## Recent Enhancements
+    match name {
+        "world" => println("hello, ${name}!"),
+        _       => println("hi anyway"),
+    }
 
-### Type System
-- Static type checking with generics and type inference
-- User-defined types with struct and enum support
-- Type aliases and trait-based polymorphism
-- Improved error messages with source location
+    [1, 2, 3, 4, 5]
+        |> map(*2)
+        |> filter(>4)
+        |> println();  // [6, 8, 10]
+}
+```
 
-### Asynchronous Programming
-- Complete async/await syntax for non-blocking code
-- Future-based task execution system
-- Async runtime with task scheduling and cancellation
-- Sleep, timeout, and other timing primitives
-
-### Concurrency Features
-- Thread creation and management with join semantics
-- Mutex, RwLock, and CondVar synchronization primitives
-- Thread-local storage and Arc (atomic reference counting)
-- Structured concurrency patterns
-
-### Cryptographic Library
-- SHA-256 and SHA-512 hashing functions
-- HMAC-SHA256 for message authentication
-- AES-256-GCM encryption and decryption
-- Secure random number generation
-- Hex encoding/decoding and Base64 utilities
-
-### Developer Experience
-- Rich CLI with compilation, running, and formatting commands
-- Strict type checking mode for catching errors early
-- Detailed error reporting with color-coded messages
-- Performance timing for compilation and execution phases
-
-## Installation
+## Quick Start
 
 ```bash
-# Clone the repository
+# Clone and build the compiler
 git clone https://github.com/w0wzahh/brute.git
 cd brute
 
-# Build the compiler
 # Windows
 build.bat
-
-# Linux/macOS
+# Linux / macOS
 ./build.sh
 
-# Install the binary (optional)
+# Or install into cargo's bin dir
 cargo install --path .
 ```
 
-## Usage
-
 ```bash
-# Compile a Brute program
-brute compile examples/hello.fe
-
-# Run a Brute program
-brute run examples/hello.fe
-
-# Run a program with async mode
-brute run-async examples/async_example.fe
-
-# Type check a program
-brute check examples/hello.fe
-
-# Format a Brute program
-brute format examples/hello.fe
-
-# Show information about Brute
-brute info
-
-# Show help
-brute --help
+# Run your first program
+brute run examples/hello_world.brt
 ```
 
-### Compiler Options
+Prebuilt binaries are attached to the
+[GitHub releases](https://github.com/w0wzahh/brute/releases) — grab the one for
+your platform, put it on your `PATH`, and go.
 
-```bash
-# Compile with verbose output
-brute -v compile examples/hello.fe
+## Features
 
-# Compile with specific optimization level
-brute -o aggressive compile examples/hello.fe
+- **Memory safety without a GC** — ownership-inspired model, no runtime pauses
+- **Static typing + inference** — `let x = 5` just works; annotations when you want them
+- **Real generics** — `struct Point<T>`, `Result<T, E>`, monomorphized at compile time
+- **Traits & impl blocks** — polymorphism without class boilerplate
+- **Pattern matching** — `match` with ranges, literals, guards, and `_` catch-alls
+- **`async`/`await`** — built-in runtime, futures, `sleep`, `timeout`
+- **Concurrency primitives** — threads, `Mutex`, `RwLock`, `CondVar`, `Arc`, channels
+- **Pipeline operator** — `value |> f |> g` instead of nesting pyramids
+- **Batteries-included stdlib** — io, collections, string, math, fs, net, time, crypto
+- **Crypto built in** — SHA-256/512, HMAC, AES-256-GCM, secure RNG
+- **LLVM backend** — optimizing native codegen (`--emit-llvm` for IR)
+- **Dual mode** — compile for production, interpret for prototyping
+- **Real tooling** — formatter (`brute format`), type checker (`brute check`)
+- **Readable errors** — colored, source-located diagnostics
+- **Strict mode** — `--strict-types` for the pedantic among us
+- **Cross-platform** — Windows, Linux, macOS
+- **Zero dependencies at runtime** — one binary per program
+- **MIT licensed** — take it, break it, ship it
 
-# Enable strict type checking
-brute --strict-types compile examples/hello.fe
+## CLI
 
-# Compile with debug information
-brute -d compile examples/hello.fe
+| Command | Description |
+|---|---|
+| `brute run file.brt` | Interpret and run a program |
+| `brute run-async file.brt` | Run with the async runtime |
+| `brute compile file.brt [-o out]` | Compile to a native binary |
+| `brute check file.brt` | Type-check without running |
+| `brute format file.brt [-i]` | Pretty-print (or rewrite in-place) |
+| `brute info` | Compiler/version info |
 
-# Compile with timing information
-brute -t compile examples/hello.fe
+Global flags: `-v` verbose · `-o <none|less|default|aggressive>` optimization ·
+`-d` debug info · `-t` timings · `--emit-llvm` write `.ll` IR · `--strict-types`
+· `--no-color`.
 
-# Compile and emit LLVM IR (creates .ll file)
-brute --emit-llvm compile examples/hello.fe
+## Language Tour
 
-# Disable colored output
-brute --no-color compile examples/hello.fe
-
-# Format a file in-place
-brute format -i examples/hello.fe
-```
-
-## Language Overview
-
-### Basic Syntax
+### Structs & generics
 
 ```rust
-// Function definition
-fn add(a: int, b: int) -> int {
-    return a + b;
-}
-
-// Variables
-let x = 5;          // Type inference
-let mut y = 10;     // Mutable variable
-let z: float = 3.14; // With type annotation
-
-// Control flow
-if x > y {
-    println("x is greater");
-} else {
-    println("y is greater");
-}
-
-// Loops
-while x > 0 {
-    x = x - 1;
-}
-
-for i in 0..10 {
-    println(i.to_string());
-}
-
-// Match statement with pattern matching
-match x {
-    0 => println("Zero"),
-    1 => println("One"),
-    n if n > 10 => println("Large number"),
-    _ => println("Other"),
-}
-```
-
-### Advanced Features
-
-#### Structs and Methods
-
-```rust
-// Struct definition with methods
 struct Point<T> {
     x: T,
     y: T,
-    
-    // Constructor
+
     pub fn new(x: T, y: T) -> Point<T> {
         Point { x, y }
     }
-    
-    // Method with self reference
+
     pub fn distance_from_origin(this) -> float {
         return ((this.x * this.x + this.y * this.y) as float).sqrt();
     }
 }
 
-// Creating and using a struct
 let p = Point::new(3.0, 4.0);
-println("Distance: " + p.distance_from_origin().to_string());
+println("Distance: " + p.distance_from_origin().to_string());  // 5
 ```
 
-#### Traits and Polymorphism
+### Error handling with `Result` + `match`
 
 ```rust
-// Trait definition
-trait Printable {
-    fn to_string(this) -> string;
-    fn print(this) -> void {
-        println(this.to_string());
-    }
-}
-
-// Implementing a trait
-impl Printable for Point<float> {
-    fn to_string(this) -> string {
-        return "Point(" + this.x.to_string() + ", " + this.y.to_string() + ")";
-    }
-}
-
-// Using trait methods
-let p = Point::new(3.0, 4.0);
-p.print();  // Uses the trait implementation
-```
-
-#### Enums and Pattern Matching
-
-```rust
-// Result type for error handling
-enum Result<T, E> {
-    Ok(T),
-    Err(E),
-    
-    pub fn unwrap(this) -> T {
-        match this {
-            Result::Ok(value) => value,
-            Result::Err(err) => panic("Called unwrap on an Err: " + err.to_string())
-        }
-    }
-}
-
-// Function returning a Result
 fn divide(a: int, b: int) -> Result<float, string> {
     if b == 0 {
-        return Result::Err("Division by zero");
+        return Result::Err("division by zero");
     }
     return Result::Ok(a as float / b as float);
 }
 
-// Pattern matching with Result
 match divide(10, 2) {
-    Result::Ok(value) => println("Result: " + value.to_string()),
-    Result::Err(msg) => println("Error: " + msg)
+    Result::Ok(v)  => println("Result: " + v.to_string()),
+    Result::Err(e) => println("Error: " + e),
 }
 ```
 
-#### Asynchronous Programming
+### Async / await
 
 ```rust
-// Async function
 async fn fetch_data(url: string) -> string {
-    // Simulate network delay
     await sleep(1000);
-    return "Data from " + url;
+    return "data from " + url;
 }
 
-// Using async/await
 fn main() -> void {
     let runtime = AsyncRuntime::new();
-    let data = runtime.block_on(fetch_data("https://example.com"));
-    println(data);
+    println(runtime.block_on(fetch_data("https://example.com")));
 }
 ```
 
-#### Concurrency
+### Threads & shared state
 
 ```rust
-// Using threads and shared state
-fn main() -> void {
-    // Create a shared counter with a mutex
-    let counter = Arc::new(Mutex::new(0));
-    
-    // Clone the counter for the thread
-    let thread_counter = counter.clone();
-    
-    // Spawn a thread
-    let handle = spawn(fn() -> void {
-        for i in 0..5 {
-            let mut count = thread_counter.lock();
-            *count += 1;
-            println("Thread: " + count.to_string());
-            sleep(100);
-        }
-    });
-    
-    // Wait for the thread to complete
-    handle.join();
-    
-    // Show final counter value
-    println("Final value: " + counter.lock().to_string());
-}
+let counter = Arc::new(Mutex::new(0));
+let c2 = counter.clone();
+
+let handle = spawn(fn() -> void {
+    for i in 0..5 {
+        let mut n = c2.lock();
+        *n += 1;
+    }
+});
+
+handle.join();
+println("final: " + counter.lock().to_string());
 ```
 
-#### Cryptography
+### Pipelines
 
 ```rust
-// Using the crypto module
-fn main() -> void {
-    // Generate a key and nonce
-    let key = generate_aes_key();
-    let nonce = generate_nonce();
-    
-    // Original message
-    let message = "Hello, encrypted world!";
-    println("Original: " + message);
-    
-    // Compute SHA-256 hash
-    let hash = sha256(message);
-    println("SHA-256: " + hash);
-    
-    // Encrypt the message
-    let encrypted = encrypt(key, nonce, message);
-    println("Encrypted: " + encrypted);
-    
-    // Decrypt the message
-    let decrypted = decrypt(key, nonce, encrypted);
-    println("Decrypted: " + decrypted);
-}
+let result = "  hello world  "
+    |> str_trim
+    |> str_uppercase
+    |> (s => s + "!")
+    |> (s => s.len());
 ```
 
-#### Pipeline Operator
-
-```rust
-// Using the pipeline operator for cleaner data transformation
-fn main() -> void {
-    let result = "  hello world  "
-        |> str_trim           // Trim whitespace
-        |> str_uppercase      // Convert to uppercase
-        |> (s => s + "!")     // Append exclamation mark
-        |> (s => s.len());    // Get length
-        
-    println("Result: " + result.to_string());
-}
-```
+Full syntax walkthroughs live on the
+[website](https://github.com/w0wzahh/brute/tree/main/website) — the
+`website/` folder is a self-contained Next.js build.
 
 ## Examples
 
-Check the examples directory for sample Brute programs:
+Eleven ready-to-run programs in [`examples/`](examples/):
 
-- `hello.fe` - A simple "Hello World" program
-- `features.fe` - Demonstrates basic language features
-- `advanced_features.fe` - Comprehensive example of advanced features
-- `async_example.fe` - Demonstrates async/await functionality
-- `crypto_demo.fe` - Showcases cryptographic operations
-- `concurrent.fe` - Examples of thread-based concurrency
+| File | Shows |
+|---|---|
+| `hello_world.brt` | Basics — functions, printing, interpolation |
+| `features.brt` | Core language tour |
+| `advanced_features.brt` | Generics, traits, enums |
+| `traits_and_generics.brt` | Trait bounds and dispatch |
+| `collections_example.brt` | `HashMap`, arrays, iteration |
+| `async_programming.brt` | `async`/`await` + the runtime |
+| `pipeline_operator.brt` | `|>` chains |
+| `io_operations.brt` | stdin/stdout, file I/O |
+| `time_module.brt` | Timers, timestamps |
+| `advanced.brt` | Everything combined |
+| `hello.brt` | Minimal hello |
 
 ## Standard Library
 
-Brute comes with a comprehensive standard library:
-
-- `stdlib::io` - Input/output operations
-- `stdlib::collections` - Data structures like HashMap, Queue
-- `stdlib::time` - Time-related functions and types
-- `stdlib::string` - String manipulation utilities
-- `stdlib::math` - Mathematical functions
-- `stdlib::fs` - File system operations
-- `stdlib::net` - Networking functionality
-- `stdlib::async_runtime` - Asynchronous programming support
-- `stdlib::crypto` - Cryptographic functions
-- `stdlib::concurrent` - Concurrency primitives
+`io` · `collections` · `string` · `math` · `fs` · `net` · `time` ·
+`async_runtime` · `crypto` · `concurrent`
 
 ## Project Structure
 
-- `src/` - Source code for the Brute compiler and interpreter
-- `examples/` - Example Brute programs
-- `tests/` - Test suite
-- `assets/` - Logo and other assets
-- `docs/` - Documentation
-- `website/` - Official website resources
+```
+brute/
+├── src/            # compiler & interpreter (Rust)
+│   └── stdlib/     # standard library modules
+├── examples/       # sample .brt programs
+├── docs/           # language docs (markdown)
+├── website/        # official site — Next.js + TypeScript
+├── assets/         # logo & art
+├── build.bat       # Windows build
+└── build.sh        # Linux/macOS build
+```
+
+## Documentation
+
+- [`docs/getting_started.md`](docs/getting_started.md) — install + first program
+- [`docs/language_guide.md`](docs/language_guide.md) — concepts, in order
+- [`docs/language_reference.md`](docs/language_reference.md) — the full spec
+- [`docs/language_grammar.md`](docs/language_grammar.md) — grammar reference
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Issues and PRs are welcome — it's a solo-built project that's actively growing.
+Check [`docs/`](docs/) to get oriented, and keep the neobrutalism loud.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+[MIT](LICENSE) — do whatever you want with it.
 
-## Acknowledgments
+---
 
-Thanks to all contributors who have helped make Brute a better language! 
+<div align="center">
+  <sub>Built by <a href="https://github.com/w0wzahh">w0wzahh</a></sub>
+</div>
