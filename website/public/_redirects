@@ -1,0 +1,12 @@
+# Legacy .html paths -> new routes (ported from netlify.toml)
+/guide.html       /docs/guide                          301
+/reference.html   /docs/reference                      301
+/api.html         /docs/api                            301
+/examples.html    /examples                            301
+/features.html    /features                            301
+/about.html       /about                               301
+/index.html       /                                    301
+
+# Shortcuts to the repo
+/github           https://github.com/w0wzahh/brute     301
+/repo             https://github.com/w0wzahh/brute     301
