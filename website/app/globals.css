@@ -155,8 +155,13 @@ section p { color: var(--ink-soft); }
 }
 @media (max-width: 900px) { .hero-split { grid-template-columns: 1fr; } }
 
+/* size the hero title to its grid column (cqi), not the viewport (vw) —
+   "STRENGTH." in Lexend Mega is ~7.6em wide, so vw sizing overflows the
+   column on wide screens and paints under the code window */
+.hero-split > :first-child { container-type: inline-size; }
 .hero h1 {
   font-size: clamp(3.2rem, 10vw, 6.6rem);
+  font-size: clamp(2.4rem, 12cqi, 6.6rem);
   letter-spacing: -1px; line-height: .95; margin-bottom: 18px;
 }
 .hero .hollow {
