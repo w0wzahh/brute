@@ -1,0 +1,13 @@
+{
+  // Assets-only Worker — no worker script, just serves website/out statically.
+  // _headers and _redirects in website/public land in out/ and are applied
+  // by the static-assets runtime automatically.
+  "name": "brute-lang",
+  "compatibility_date": "2026-10-03",
+  "assets": {
+    "directory": "./website/out",
+  },
+  "routes": [
+    { "pattern": "brute.w0wzahh.link", "custom_domain": true },
+  ],
+}
