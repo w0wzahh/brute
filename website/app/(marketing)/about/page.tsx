@@ -65,16 +65,28 @@ export default function About() {
               <p>
                 <i className="fas fa-code" /> Developer of Brute
               </p>
-              <a
-                href="https://github.com/w0wzahh/brute"
-                target="_blank"
-                rel="noreferrer"
-                className="gh-icon"
-                aria-label="Brute on GitHub"
-                title="Brute on GitHub"
-              >
-                <i className="fab fa-github" />
-              </a>
+              <div className="profile-links">
+                <a
+                  href="https://github.com/w0wzahh/brute"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="gh-icon"
+                  aria-label="Brute on GitHub"
+                  title="Brute on GitHub"
+                >
+                  <i className="fab fa-github" />
+                </a>
+                <a
+                  href="https://w0wzahh.link"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="gh-icon"
+                  aria-label="w0wzahh portfolio — w0wzahh.link"
+                  title="w0wzahh.link"
+                >
+                  <i className="fas fa-globe" />
+                </a>
+              </div>
             </div>
           </div>
           <div className="about-content">

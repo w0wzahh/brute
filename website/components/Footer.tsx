@@ -48,6 +48,7 @@ export default function Footer() {
               <h3>Developer</h3>
               <ul className="footer-links">
                 <li><a href="https://github.com/w0wzahh">w0wzahh</a></li>
+                <li><a href="https://w0wzahh.link">Portfolio — w0wzahh.link</a></li>
                 <li><a href="https://github.com/w0wzahh/brute">Repository</a></li>
               </ul>
             </div>
